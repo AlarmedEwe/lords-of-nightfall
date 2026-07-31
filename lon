@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# lon - Lords of Nightfall build/run helper
+# Uso:
+#   ./lon build [debug|development|release]
+#   ./lon run   [debug|development|release]
+#   ./lon clean [debug|development|release]
+
+set -e
+
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+DEFAULT_CONFIG="Development"
+
+command="${1:-help}"
+config="${2:-$DEFAULT_CONFIG}"
+
+# Normaliza config para PascalCase
+case "${config,,}" in
+    debug)       config="Debug" ;;
+    development) config="Development" ;;
+    release)     config="Release" ;;
+    *)           config="Development" ;;
+esac
+
+BUILD_DIR="$PROJECT_ROOT/Build/Intermediate/$config"
+OUTPUT_DIR="$PROJECT_ROOT/Build/$config"
+EXECUTABLE="$OUTPUT_DIR/LordsOfNightfall"
+
+case "$command" in
+    build)
+        echo "[lon] Configurando ($config)..."
+        cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$config" "$PROJECT_ROOT"
+        echo "[lon] Compilando..."
+        cmake --build "$BUILD_DIR" -j"$(nproc)"
+        echo "[lon] Build concluída: $EXECUTABLE"
+        ;;
+    run)
+        if [ ! -f "$EXECUTABLE" ]; then
+            echo "[lon] Executável não encontrado. Compilando primeiro..."
+            "$0" build "$config"
+        fi
+        echo "[lon] Executando ($config)..."
+        cd "$OUTPUT_DIR"
+        ./LordsOfNightfall
+        ;;
+    clean)
+        echo "[lon] Limpando $config..."
+        rm -rf "$BUILD_DIR" "$OUTPUT_DIR"
+        echo "[lon] Limpo."
+        ;;
+    help|*)
+        echo "Lords of Nightfall - Build Helper"
+        echo ""
+        echo "Uso: ./lon <comando> [config]"
+        echo ""
+        echo "Comandos:"
+        echo "  build   Compila o projeto"
+        echo "  run     Compila (se necessário) e executa"
+        echo "  clean   Remove artefatos de build"
+        echo ""
+        echo "Configs: debug, development (padrão), release"
+        echo ""
+        echo "Exemplos:"
+        echo "  ./lon build"
+        echo "  ./lon run debug"
+        echo "  ./lon clean release"
+        ;;
+esac

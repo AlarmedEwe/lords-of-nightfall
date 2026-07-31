@@ -1,0 +1,9 @@
+[submodule "Game/ThirdParty/raylib"]
+	path = Game/ThirdParty/raylib
+	url = https://github.com/raysan5/raylib.git
+[submodule "Game/ThirdParty/JoltPhysics"]
+	path = Game/ThirdParty/JoltPhysics
+	url = https://github.com/jrouwe/JoltPhysics.git
+[submodule "Game/ThirdParty/imgui"]
+	path = Game/ThirdParty/imgui
+	url = https://github.com/ocornut/imgui.git
