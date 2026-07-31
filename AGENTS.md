@@ -67,6 +67,16 @@ Estilo de programação e Gerenciamento de Memória:
 
 ---
 
+# Estrutura do código
+
+Descrição de todo o código dentro de `/Game/Source/`:
+- **Main.cpp**: Ponto de inicio do programa;
+- **App.h/cpp**: Será a classe principal do jogo, responsável por cuidar da janela, sistema de inputs, gerenciar a cena ativa e executar o gameloop do jogo;
+- **Scene.h/cpp**: Classe para as Cenas do jogo. Cada cena contém informações da câmera que será usada, uma lista de GameObjects, interface do jogo, etc. É responsável por gerenciar esses dados e gerenciar a lógica de cada objeto.
+- **GameObject.h/cpp**: Classe GameObject, cada um representa um objeto no mundo em 3D e pode ter formas, lógicas e físicas diferentes. Feito para ser uma classe base que é especializada depois em classes filho, dentro da pasta `/Game/Source/GameObjects/`. Exemplo: TerrainObject para terrenos, PlayerObject para o player, EnemyObject para inimigos, NPCObject para NPCs, PropObject para props do cenário, etc.
+
+---
+
 # Tools (Ferramentas)
 
 Nós teremos ferramentas para ajudar no desenvolvimento do jogo. Essas ferramentas podem ser escritas em Python.
@@ -85,3 +95,6 @@ As ferramentas do motor (como o editor de level) salvarão modificações de cen
 
 ## Milestone 01: Estrutura do projeto
 Criar um "Hello world" para esse projeto através do `CMakeLists.txt`, que compila nativamente para Linux e via MinGW para Windows, possui todas as bibliotecas clonadas para `Game/ThirdParty/` e linkadas no game. O projeto compila, abre, mas não tem absolutamente nada. As tools (`AssetCooker.py`) executam no build event via CMake, mas também não fazem nada.
+
+## Milestone 02: Jogo "Base"
+Ter uma "base jogável", ou seja: um cubo andando com W, A, S, D, pulando com espaço, câmera em terceira pessoa controlável com o mouse, camera collision, um sistema de terreno e sombras do sol.
