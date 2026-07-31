@@ -50,7 +50,7 @@ void Scene::UpdateCamera(Vector3 playerPosition, float deltaTime)
     // Mouse input para rotação
     Vector2 mouseDelta = GetMouseDelta();
     cameraYaw -= mouseDelta.x * 0.3f;
-    cameraPitch -= mouseDelta.y * 0.3f;
+    cameraPitch += mouseDelta.y * 0.3f;
 
     // Clamp pitch
     if (cameraPitch < -89.0f) cameraPitch = -89.0f;
