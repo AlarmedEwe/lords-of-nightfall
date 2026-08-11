@@ -2,8 +2,18 @@
 #define APP_H
 
 #include "Scene.h"
+#include "MainMenuScene.h"
+#include "UISystem.h"
+#include "Settings.h"
+#include "SettingsMenu.h"
 #include "GameObjects/TerrainObject.h"
 #include "GameObjects/PlayerObject.h"
+
+enum class GameState
+{
+    MainMenu,
+    Gameplay
+};
 
 struct App
 {
@@ -11,6 +21,16 @@ struct App
     int screenHeight = 720;
     bool running = true;
 
+    GameState state = GameState::MainMenu;
+    bool isPaused = false;
+
+    UISystem ui;
+    Settings settings;
+    SettingsMenu settingsMenu;
+
+    MainMenuScene mainMenuScene;
+
+    // Gameplay scene
     Scene scene;
     TerrainObject terrain;
     PlayerObject player;
@@ -18,6 +38,10 @@ struct App
     void Init();
     void Run();
     void Shutdown();
+
+private:
+    void StartGameplay();
+    void ReturnToMainMenu();
 };
 
 #endif // APP_H

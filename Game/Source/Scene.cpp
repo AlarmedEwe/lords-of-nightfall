@@ -43,14 +43,14 @@ void Scene::Shutdown()
     physics.Shutdown();
 }
 
-void Scene::UpdateCamera(Vector3 playerPosition, float deltaTime)
+void Scene::UpdateCamera(Vector3 playerPosition, float deltaTime, float sensitivity)
 {
     (void)deltaTime;
 
-    // Mouse input para rotação
+    // Mouse input para rotação com sensibilidade aplicada
     Vector2 mouseDelta = GetMouseDelta();
-    cameraYaw -= mouseDelta.x * 0.3f;
-    cameraPitch += mouseDelta.y * 0.3f;
+    cameraYaw -= mouseDelta.x * 0.3f * sensitivity;
+    cameraPitch += mouseDelta.y * 0.3f * sensitivity;
 
     // Clamp pitch
     if (cameraPitch < -89.0f) cameraPitch = -89.0f;

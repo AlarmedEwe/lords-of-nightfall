@@ -25,7 +25,7 @@ struct Scene
     void Draw();
     void Shutdown();
 
-    void UpdateCamera(Vector3 playerPosition, float deltaTime);
+    void UpdateCamera(Vector3 playerPosition, float deltaTime, float sensitivity = 1.0f);
 };
 
 #endif // SCENE_H

@@ -98,3 +98,21 @@ Criar um "Hello world" para esse projeto através do `CMakeLists.txt`, que compi
 
 ## Milestone 02: Jogo "Base"
 Ter uma "base jogável", ou seja: um cubo andando com W, A, S, D, pulando com espaço, câmera em terceira pessoa controlável com o mouse, camera collision, um sistema de terreno e sombras do sol.
+
+## Milestone 03: Menu inicial e de pausa
+Crie uma cena diferente, para o menu principal do jogo. Essa cena pode ser só um terreno com um cubo no meio por enquanto, e uma câmera girando em torno do cubo, pra ficar legal. E ai precisa de ter menus. O título do jogo (Lords of Nightfall). Opção de sair do jogo, opção de jogar e opção de configurações do jogo. No canto inferior esquerdo da tela, você pode colocar os créditos, que é "Stormhowl Studios" e a build do jogo.
+
+Crie também na cena principal do jogo um menu de pausa. Quando o jogador apertar Esc, o jogo pausa. Você coloca um overlay escuro na frente e com opções de continuar o jogo, configurações, voltar para o menu e por último sair do jogo, que vai fechar o jogo. Assim como no menu principal vai sair. O menu de configurações do menu de pausa e do menu principal, eu quero que você faça modular, basicamente para a gente conseguir reutilizar o mesmo menu de configurações nos dois, já que eles vão se tratar da mesma coisa. E as configurações que eu quero que você coloque são:
+
+Configurações gráficas para ajustar, por exemplo, se eu quero o jogo em full screen ou não, a qualidade das sombras e talvez a resolução do jogo. Pode ser por padrão customizado, que é o tamanho da tela. Depois de gameplay, eu quero que você crie uma configuração para o mouse look, para a sensibilidade do mouse. E também já crie de uma vez, já antecipando, configurações do volume de á do jogo.
+
+Para o estilo visual da UI do jogo, utilize os assets que eu coloquei na pasta `Game/Assets/kenney_fantasy-ui-borders`. E para a primeira vez, isso significa que você vai ter que usar o nosso sistema de asset cooker, ou seja, o arquivo Python dentro da pasta tools. Preciso que você faça ele pegar as imagens que você vai precisar lá no Kenney, especificamente as imagens em PNG com resolução double e copie elas para junto da pasta final do jogo, da build do jogo, na pasta assets, com o formato que o nosso motor consegue ler rapidamente e carregar na memória para você utilizar na interface.
+
+## Milestone 04: Personagem principal com animações
+
+## Milestone 05: Sistema de vida, XP do personagem + ataques, etc.
+
+## Milestone 06: Inimigos (lógica + animações)
+
+## Milestone XX (final): Polimentos e otimizações
+- Mude as cores do menu para deixar mais flat
