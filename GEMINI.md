@@ -90,6 +90,15 @@ Na versão final do jogo, ou seja, junto ao executável de cada build, seja de d
 As ferramentas do motor (como o editor de level) salvarão modificações de cena temporárias e dados de execução em um diretório de runtime dedicado (`Build/<Config>/Saved/`), evitando a modificação direta do diretório de código-fonte `Game/Assets/` durante a execução do jogo para evitar conflitos de sincronização no CMake.
 
 ---
+# Assets 3D do jogo
+**MUITO IMPORTANTE:** Esses assets em formato FBX NÃO são para serem importados diretamente em FBX no jogo. Ao invés disso, use o script `Tools/AssetCooker.py` para extrair esses arquivos e escrever um arquivo final em binário junto ao `.exe`, num formato que o jogo consiga ler e importar de forma rápida e fácil. Use a SIMP para importar os FBX. Crie um `.venv` do Python e um `requirements.txt` para instalar essas coisas.
+
+## Assets dos personagens
+- Nas pastas `Game/Assets/Universal Animation Library/` e `Game/Assets/Universal Animation Library 2/`, você vai encontrar FBXs contendo inúmeras animações: `UAL1_standard.fbx` e `UAL2_standard.fbx`.
+- Em `Game/Assets/Universal Base Characters/`, você vai encontrar uma personagem base já rigado (`superhero_male_fullbody.fbx`) para ser o personagem principal do jogo. Essa skin é o personagem "só de cueca", sem roupas.
+- Em `Game/Assets/Modular Character Outfits/`, você vai encontrar 4 modelos diferentes de outfits, sendo que vamos usar dois: `Male_Ranger.fbx` e `Male_Peasant.fbx`. Ambos já estão rigados e vamos usar as partes individuais aqui para fazer os equipamentos.
+
+---
 
 # Milestones
 
@@ -109,6 +118,7 @@ Configurações gráficas para ajustar, por exemplo, se eu quero o jogo em full 
 Para o estilo visual da UI do jogo, utilize os assets que eu coloquei na pasta `Game/Assets/kenney_fantasy-ui-borders`. E para a primeira vez, isso significa que você vai ter que usar o nosso sistema de asset cooker, ou seja, o arquivo Python dentro da pasta tools. Preciso que você faça ele pegar as imagens que você vai precisar lá no Kenney, especificamente as imagens em PNG com resolução double e copie elas para junto da pasta final do jogo, da build do jogo, na pasta assets, com o formato que o nosso motor consegue ler rapidamente e carregar na memória para você utilizar na interface.
 
 ## Milestone 04: Personagem principal com animações
+Agora nós vamos melhorar o nosso sistema de asset cooking para ler o FBX e criar um formato próprio junto ao executável do jogo dentro da pasta assets, que vai junto ao executável de forma que a gente consiga importar os nossos modelos e animações e executar eles dentro do jogo. Implemente a seção assets 3D do jogo neste documento. Especifique os assets do personagem. O personagem principal, então, deve ter a forma visual do personagem base, do standard character, e deve ter animações: ele parado, ele andando, correndo, pulando, etc.
 
 ## Milestone 05: Sistema de vida, XP do personagem + ataques, etc.
 
