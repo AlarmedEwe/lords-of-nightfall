@@ -1,14 +1,19 @@
 #include "PlayerObject.h"
 #include "raymath.h"
 #include <cmath>
+#include <algorithm>
 
 void PlayerObject::Init(Physics& physics)
 {
+    float capsuleRadius = 0.3f;
+    float capsuleHalfHeight = 0.6f;
+
     characterSettings = new JPH::CharacterVirtualSettings();
     characterSettings->mMass = 70.0f;
     characterSettings->mMaxStrength = 100.0f;
-    characterSettings->mShape = new JPH::CapsuleShape(0.2f, 0.3f);
+    characterSettings->mShape = new JPH::CapsuleShape(capsuleRadius, capsuleHalfHeight);
     characterSettings->mMaxSlopeAngle = JPH::DegreesToRadians(50.0f);
+    characterSettings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -capsuleHalfHeight);
 
     character = new JPH::CharacterVirtual(
         characterSettings,
@@ -19,32 +24,51 @@ void PlayerObject::Init(Physics& physics)
     );
 
     character->SetUp(JPH::Vec3(0.0f, 1.0f, 0.0f));
-
     position = {0.0f, 5.0f, 0.0f};
+
+    // Carrega o modelo 3D lonmodel v2 do personagem Superhero Male com animações
+    characterModel.Load("Superhero_Male.lonmodel", "T_Superhero_Male_Ligh.png");
 }
 
 void PlayerObject::Update(Physics& physics, float deltaTime)
 {
-    // Ground check
-    onGround = character->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround;
+    // Ground check do Jolt CharacterVirtual
+    JPH::CharacterVirtual::EGroundState groundState = character->GetGroundState();
+    onGround = (groundState == JPH::CharacterVirtual::EGroundState::OnGround) || character->IsSupported();
 
-    // Input de movimento
+    // Shift para correr
+    bool isRunning = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+    float currentSpeed = isRunning ? runSpeed : moveSpeed;
+
+    // Vetores de direção relativos ao ângulo da câmera
+    float yawRad = cameraYaw * DEG2RAD;
+    Vector3 camForward = { sinf(yawRad), 0.0f, cosf(yawRad) };
+    Vector3 camRight = { cosf(yawRad), 0.0f, -sinf(yawRad) };
+
     JPH::Vec3 moveDir = JPH::Vec3::sZero();
-    float yawRad = facingYaw * DEG2RAD;
 
-    Vector3 forward = {sinf(yawRad), 0.0f, cosf(yawRad)};
-    Vector3 right = {cosf(yawRad), 0.0f, -sinf(yawRad)};
+    // W: Frente | S: Trás | D: Direita | A: Esquerda
+    if (IsKeyDown(KEY_W)) { moveDir -= JPH::Vec3(camForward.x, 0.0f, camForward.z); }
+    if (IsKeyDown(KEY_S)) { moveDir += JPH::Vec3(camForward.x, 0.0f, camForward.z); }
+    if (IsKeyDown(KEY_D)) { moveDir += JPH::Vec3(camRight.x, 0.0f, camRight.z); }
+    if (IsKeyDown(KEY_A)) { moveDir -= JPH::Vec3(camRight.x, 0.0f, camRight.z); }
 
-    if (IsKeyDown(KEY_W)) { moveDir -= JPH::Vec3(forward.x, 0.0f, forward.z); }
-    if (IsKeyDown(KEY_S)) { moveDir += JPH::Vec3(forward.x, 0.0f, forward.z); }
-    if (IsKeyDown(KEY_D)) { moveDir += JPH::Vec3(right.x, 0.0f, right.z); }
-    if (IsKeyDown(KEY_A)) { moveDir -= JPH::Vec3(right.x, 0.0f, right.z); }
+    bool isMoving = moveDir.LengthSq() > 0.001f;
 
-    if (moveDir.LengthSq() > 0.0f)
+    if (isMoving)
+    {
         moveDir = moveDir.Normalized();
 
+        // Rotação alvo da malha baseada no vetor de movimento
+        float targetYaw = atan2f(-moveDir.GetX(), -moveDir.GetZ()) * RAD2DEG + 180.0f;
+
+        // Interpolação suave de rotação (LerpAngle)
+        float diff = fmodf(targetYaw - meshYaw + 540.0f, 360.0f) - 180.0f;
+        meshYaw += diff * std::min(1.0f, deltaTime * 12.0f);
+    }
+
     // Velocidade horizontal
-    JPH::Vec3 desiredVelocity = moveDir * moveSpeed;
+    JPH::Vec3 desiredVelocity = moveDir * currentSpeed;
 
     // Gravidade e pulo
     float verticalVelocity = character->GetLinearVelocity().GetY();
@@ -53,7 +77,10 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     {
         verticalVelocity = 0.0f;
         if (IsKeyPressed(KEY_SPACE))
+        {
             verticalVelocity = jumpSpeed;
+            onGround = false;
+        }
     }
     else
     {
@@ -63,7 +90,7 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     JPH::Vec3 newVelocity(desiredVelocity.GetX(), verticalVelocity, desiredVelocity.GetZ());
     character->SetLinearVelocity(newVelocity);
 
-    // Configurar para o update
+    // Configuração de colisão com o chão
     JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings;
     updateSettings.mStickToFloorStepDown = JPH::Vec3(0.0f, -0.5f, 0.0f);
     updateSettings.mWalkStairsStepUp = JPH::Vec3(0.0f, 0.4f, 0.0f);
@@ -84,21 +111,58 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     position.x = (float)charPos.GetX();
     position.y = (float)charPos.GetY();
     position.z = (float)charPos.GetZ();
+
+    // Atualiza estado de animação e reproduz no modelo
+    if (!onGround)
+    {
+        animState = PlayerAnimState::Jump;
+        characterModel.SetAnimation(3); // Jump
+    }
+    else if (isMoving)
+    {
+        if (isRunning)
+        {
+            animState = PlayerAnimState::Run;
+            characterModel.SetAnimation(2); // Run
+        }
+        else
+        {
+            animState = PlayerAnimState::Walk;
+            characterModel.SetAnimation(1); // Walk
+        }
+    }
+    else
+    {
+        animState = PlayerAnimState::Idle;
+        characterModel.SetAnimation(0); // Idle
+    }
+
+    characterModel.Update(deltaTime);
 }
 
 void PlayerObject::Draw()
 {
-    // A posição do CharacterVirtual é a base (pés).
-    // Cápsula: meia-altura 0.2 + raio 0.3 = 0.5 total de cada lado, centro no meio.
-    // Cubo visual de 1.0 de altura, centro em position.y + 0.5
-    Vector3 cubePos = {position.x, position.y, position.z};
-    DrawCube(cubePos, 0.6f, 1.0f, 0.6f, BLUE);
-    DrawCubeWires(cubePos, 0.6f, 1.0f, 0.6f, DARKBLUE);
+    // O centro do cápsula fica a 0.9m acima dos pés. Deslocamos o modelo para que os pés fiquem perfeitamente no chão.
+    float feetOffset = 0.9f;
+    Vector3 drawPos = { position.x, position.y - feetOffset, position.z };
+
+    if (characterModel.isLoaded)
+    {
+        characterModel.Draw(drawPos, meshYaw, 1.0f, WHITE);
+    }
+    else
+    {
+        // Fallback visual
+        DrawCube(position, 0.6f, 1.8f, 0.6f, BLUE);
+        DrawCubeWires(position, 0.61f, 1.81f, 0.61f, DARKBLUE);
+    }
 }
 
 void PlayerObject::Shutdown(Physics& physics)
 {
     (void)physics;
+    characterModel.Unload();
+
     delete character;
     character = nullptr;
     delete characterSettings;

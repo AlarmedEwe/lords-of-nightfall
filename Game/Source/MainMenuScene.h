@@ -6,6 +6,7 @@
 #include "SettingsMenu.h"
 #include "GameObjects/TerrainObject.h"
 #include "Physics.h"
+#include "LONModel.h"
 
 enum class MainMenuAction
 {
@@ -19,6 +20,7 @@ struct MainMenuScene
     Camera3D camera = {};
     TerrainObject terrain;
     Physics physics;
+    LONModel characterModel;
 
     float cameraAngle = 0.0f;
     float cameraDistance = 14.0f;

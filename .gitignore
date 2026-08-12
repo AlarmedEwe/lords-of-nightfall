@@ -29,6 +29,12 @@ cmake_install.cmake
 Makefile
 compile_commands.json
 
-# Python
+# Python & Virtual Environments
+.venv/
+env/
+venv/
+ENV/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd

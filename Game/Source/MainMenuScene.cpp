@@ -14,13 +14,17 @@ void MainMenuScene::Init()
 
     terrain.Init(physics);
     physics.system.OptimizeBroadPhase();
+
+    // Carrega o modelo 3D lonmodel v2 do personagem no Menu Principal
+    characterModel.Load("Superhero_Male.lonmodel", "T_Superhero_Male_Ligh.png");
+    characterModel.SetAnimation(0); // Idle
 }
 
 void MainMenuScene::Update(float deltaTime)
 {
     physics.Update(deltaTime);
 
-    // Câmera gira continuamente em torno do cubo central
+    // Câmera gira continuamente em torno do centro da cena
     cameraAngle += deltaTime * 0.25f;
 
     float rad = cameraAngle;
@@ -28,25 +32,36 @@ void MainMenuScene::Update(float deltaTime)
     camera.position.z = centerTarget.z + cosf(rad) * cameraDistance;
     camera.position.y = centerTarget.y + cameraHeight + sinf(rad * 0.5f) * 1.0f;
     camera.target = centerTarget;
+
+    // Atualiza a animação Idle do modelo 3D
+    characterModel.Update(deltaTime);
 }
 
 void MainMenuScene::Draw(UISystem& ui, SettingsMenu& settingsMenu, Settings& settings, int screenWidth, int screenHeight, MainMenuAction& outAction)
 {
     outAction = MainMenuAction::None;
 
-    // 3D Scene Rendering
+    // Renderização da Cena 3D
     BeginMode3D(camera);
 
     terrain.Draw();
 
-    // Cubo central no terreno
-    Vector3 cubePos = centerTarget;
-    float terrainH = terrain.GetHeightAt(cubePos.x, cubePos.z);
-    cubePos.y = terrainH + 1.0f;
-    centerTarget.y = cubePos.y;
+    // Desenha o personagem 3D no centro da cena no terreno
+    Vector3 charPos = centerTarget;
+    float terrainH = terrain.GetHeightAt(charPos.x, charPos.z);
+    charPos.y = terrainH;
+    centerTarget.y = charPos.y + 1.0f;
 
-    DrawCube(cubePos, 2.0f, 2.0f, 2.0f, (Color){160, 50, 60, 255});
-    DrawCubeWires(cubePos, 2.05f, 2.05f, 2.05f, (Color){240, 200, 80, 255});
+    if (characterModel.isLoaded)
+    {
+        characterModel.Draw(charPos, cameraAngle * RAD2DEG, 1.0f, WHITE);
+    }
+    else
+    {
+        Vector3 cubePos = {charPos.x, charPos.y + 1.0f, charPos.z};
+        DrawCube(cubePos, 2.0f, 2.0f, 2.0f, (Color){160, 50, 60, 255});
+        DrawCubeWires(cubePos, 2.05f, 2.05f, 2.05f, (Color){240, 200, 80, 255});
+    }
 
     EndMode3D();
 
@@ -100,11 +115,11 @@ void MainMenuScene::Draw(UISystem& ui, SettingsMenu& settingsMenu, Settings& set
 
     // Créditos no Canto Inferior Esquerdo
 #if defined(LON_DEBUG)
-    const char* buildStr = "Stormhowl Studios | Build v0.3.0 (Debug)";
+    const char* buildStr = "Stormhowl Studios | Build v0.4.0 (Debug)";
 #elif defined(LON_DEVELOPMENT)
-    const char* buildStr = "Stormhowl Studios | Build v0.3.0 (Development)";
+    const char* buildStr = "Stormhowl Studios | Build v0.4.0 (Development)";
 #else
-    const char* buildStr = "Stormhowl Studios | Build v0.3.0 (Release)";
+    const char* buildStr = "Stormhowl Studios | Build v0.4.0 (Release)";
 #endif
 
     DrawRectangle(10, screenHeight - 34, MeasureText(buildStr, 14) + 16, 24, (Color){15, 12, 22, 200});
@@ -114,6 +129,7 @@ void MainMenuScene::Draw(UISystem& ui, SettingsMenu& settingsMenu, Settings& set
 
 void MainMenuScene::Shutdown()
 {
+    characterModel.Unload();
     terrain.Shutdown(physics);
     physics.Shutdown();
 }
