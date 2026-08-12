@@ -45,6 +45,38 @@ void App::ReturnToMainMenu()
     EnableCursor();
 }
 
+#include <ctime>
+#include <cstdlib>
+#include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+static void CaptureScreenshotToDiskAndClipboard()
+{
+    const char* homeDir = getenv("HOME");
+    std::string picturesDir = homeDir ? (std::string(homeDir) + "/Pictures") : "/home/upd8-guilherme/Pictures";
+    std::string screenshotDir = picturesDir + "/Screenshots";
+
+    mkdir(picturesDir.c_str(), 0755);
+    mkdir(screenshotDir.c_str(), 0755);
+
+    time_t rawtime;
+    time(&rawtime);
+    struct tm* timeinfo = localtime(&rawtime);
+    char filename[80];
+    strftime(filename, sizeof(filename), "/LON_%Y-%m-%d_%H-%M-%S.png", timeinfo);
+
+    std::string fullPath = screenshotDir + filename;
+
+    TakeScreenshot(fullPath.c_str());
+    TraceLog(LOG_INFO, "[Screenshot] Captura salva em: %s", fullPath.c_str());
+
+    std::string copyCmd = "python3 -c \"import gi; gi.require_version('Gtk','3.0'); from gi.repository import Gtk, Gdk, GdkPixbuf; pb=GdkPixbuf.Pixbuf.new_from_file('" + fullPath + "'); cb=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD); cb.set_image(pb); cb.store()\" 2>/dev/null || xclip -selection clipboard -t image/png -i \"" + fullPath + "\" 2>/dev/null || wl-copy -t image/png < \"" + fullPath + "\" 2>/dev/null &";
+    (void)system(copyCmd.c_str());
+}
+#endif
+
 void App::Run()
 {
     while (!WindowShouldClose() && running)
@@ -54,6 +86,13 @@ void App::Run()
 
         screenWidth = GetScreenWidth();
         screenHeight = GetScreenHeight();
+
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+        if (IsKeyPressed(KEY_P))
+        {
+            CaptureScreenshotToDiskAndClipboard();
+        }
+#endif
 
         if (state == GameState::MainMenu)
         {
