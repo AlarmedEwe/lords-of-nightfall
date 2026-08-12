@@ -48,8 +48,8 @@ void main()
     if (projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0)
     {
         float currentDepth = projCoords.z;
-        // Bias adaptativo para evitar shadow acne
-        float bias = max(0.0015 * (1.0 - NdotL), 0.0003);
+        // Bias adaptativo para evitar self-shadowing no terreno
+        float bias = max(0.005 * (1.0 - NdotL), 0.0015);
 
         // PCF (Percentage-Closer Filtering) 3x3 para bordas de sombras suavizadas
         vec2 texelSize = vec2(1.0 / float(shadowMapResolution));
@@ -67,6 +67,11 @@ void main()
             }
         }
         shadow = shadowSum / 9.0;
+
+        // Suaviza as bordas do frustum de sombras para transição imperceptível
+        vec2 border = min(projCoords.xy, 1.0 - projCoords.xy);
+        float edgeFactor = smoothstep(0.0, 0.08, min(border.x, border.y));
+        shadow *= edgeFactor;
     }
 
     // Combina Luz Ambiente + (Luz Difusa + Especular) * (1.0 - Sombra)

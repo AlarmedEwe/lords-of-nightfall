@@ -8,8 +8,8 @@
 struct LightingSystem
 {
     Vector3 lightDir = { 0.35f, -0.85f, -0.35f };
-    Vector4 lightColor = { 1.0f, 0.95f, 0.85f, 1.0f };
-    Vector4 ambientColor = { 0.22f, 0.26f, 0.35f, 1.0f };
+    Vector4 lightColor = { 1.1f, 1.05f, 0.95f, 1.0f };
+    Vector4 ambientColor = { 0.25f, 0.30f, 0.40f, 1.0f };
 
     Shader shadowShader = {};
     RenderTexture2D shadowMap = {};
@@ -17,7 +17,6 @@ struct LightingSystem
 
     Matrix lightViewProj = {};
     int shadowMapResolution = 2048;
-    int shadowMapSlot = 10;
 
     int locLightDir = -1;
     int locLightColor = -1;

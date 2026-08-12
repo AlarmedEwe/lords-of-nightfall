@@ -177,8 +177,7 @@ void TerrainObject::Update(Physics& physics, float deltaTime)
 void TerrainObject::Draw()
 {
     if (!meshGenerated) return;
-    DrawModel(model, position, 1.0f, DARKGREEN);
-    DrawModelWires(model, position, 1.0f, (Color){30, 60, 30, 80});
+    DrawModel(model, position, 1.0f, (Color){ 45, 140, 60, 255 });
 }
 
 void TerrainObject::Shutdown(Physics& physics)

@@ -38,6 +38,8 @@ static RenderTexture2D CreateShadowMapFBO(int width, int height)
 {
     RenderTexture2D target = { 0 };
     target.id = rlLoadFramebuffer();
+    target.texture.width = width;
+    target.texture.height = height;
 
     if (target.id > 0)
     {
@@ -75,15 +77,17 @@ void LightingSystem::Init(int mapResolution)
         locLightVP = GetShaderLocation(shadowShader, "lightVP");
         locShadowMap = GetShaderLocation(shadowShader, "shadowMap");
         locShadowMapRes = GetShaderLocation(shadowShader, "shadowMapResolution");
+
         shadowShader.locs[SHADER_LOC_VECTOR_VIEW] = locViewPos;
+        shadowShader.locs[SHADER_LOC_MAP_SPECULAR] = locShadowMap;
 
         shadowMap = CreateShadowMapFBO(shadowMapResolution, shadowMapResolution);
 
-        // Câmera ortográfica para luz solar direcional
+        // Câmera ortográfica para iluminação direcional (Sol)
         lightCamera = (Camera3D){ 0 };
         lightCamera.projection = CAMERA_ORTHOGRAPHIC;
         lightCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-        lightCamera.fovy = 50.0f; // Tamanho do volume ortográfico que cobre o personagem e terreno próximo
+        lightCamera.fovy = 50.0f; // Frustum ortográfico (50m x 50m) cobrindo área ampla ao redor do personagem
 
         isLoaded = true;
         TraceLog(LOG_INFO, "[LightingSystem] Sistema de Iluminação e Sombras inicializado com sucesso.");
@@ -99,24 +103,28 @@ void LightingSystem::BeginShadowMapPass(Vector3 focusPosition)
     if (!isLoaded) return;
 
     Vector3 normLightDir = Vector3Normalize(lightDir);
-    lightCamera.position = Vector3Subtract(focusPosition, Vector3Scale(normLightDir, 40.0f));
+    // Posiciona a fonte de luz 50m acima do foco
+    lightCamera.position = Vector3Subtract(focusPosition, Vector3Scale(normLightDir, 50.0f));
     lightCamera.target = focusPosition;
+
+    Matrix lightView = MatrixLookAt(lightCamera.position, lightCamera.target, lightCamera.up);
+    float size = lightCamera.fovy * 0.5f;
+    Matrix lightProj = MatrixOrtho(-size, size, -size, size, 0.1f, 100.0f);
+    lightViewProj = MatrixMultiply(lightView, lightProj);
 
     BeginTextureMode(shadowMap);
     ClearBackground(WHITE);
 
     BeginMode3D(lightCamera);
+    rlSetCullFace(RL_CULL_FACE_FRONT); // Front-face culling durante pass de sombras elimina self-shadowing no terreno
 }
 
 void LightingSystem::EndShadowMapPass()
 {
     if (!isLoaded) return;
 
-    Matrix lightView = rlGetMatrixModelview();
-    Matrix lightProj = rlGetMatrixProjection();
-    lightViewProj = MatrixMultiply(lightView, lightProj);
-
     EndMode3D();
+    rlSetCullFace(RL_CULL_FACE_BACK); // Restaura back-face culling padrão
     EndTextureMode();
 }
 
@@ -125,6 +133,7 @@ void LightingSystem::BindLightingUniforms(Vector3 cameraPos)
     if (!isLoaded) return;
 
     Vector3 normLightDir = Vector3Normalize(lightDir);
+    int slot1 = 1;
 
     SetShaderValue(shadowShader, locLightDir, &normLightDir, SHADER_UNIFORM_VEC3);
     SetShaderValue(shadowShader, locLightColor, &lightColor, SHADER_UNIFORM_VEC4);
@@ -132,11 +141,7 @@ void LightingSystem::BindLightingUniforms(Vector3 cameraPos)
     SetShaderValue(shadowShader, locViewPos, &cameraPos, SHADER_UNIFORM_VEC3);
     SetShaderValueMatrix(shadowShader, locLightVP, lightViewProj);
     SetShaderValue(shadowShader, locShadowMapRes, &shadowMapResolution, SHADER_UNIFORM_INT);
-
-    rlEnableShader(shadowShader.id);
-    rlActiveTextureSlot(shadowMapSlot);
-    rlEnableTexture(shadowMap.depth.id);
-    rlSetUniform(locShadowMap, &shadowMapSlot, SHADER_UNIFORM_INT, 1);
+    SetShaderValue(shadowShader, locShadowMap, &slot1, SHADER_UNIFORM_INT);
 }
 
 void LightingSystem::ApplyToModel(Model& model)
@@ -146,6 +151,7 @@ void LightingSystem::ApplyToModel(Model& model)
     for (int i = 0; i < model.materialCount; i++)
     {
         model.materials[i].shader = shadowShader;
+        model.materials[i].maps[1].texture = shadowMap.depth;
     }
 }
 

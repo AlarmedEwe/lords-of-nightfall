@@ -25,7 +25,7 @@ void Scene::Init()
 
         if (auto* terrain = dynamic_cast<TerrainObject*>(obj))
         {
-            terrain->model.materials[0].shader = lightingSystem.shadowShader;
+            lightingSystem.ApplyToModel(terrain->model);
         }
         else if (auto* player = dynamic_cast<PlayerObject*>(obj))
         {
