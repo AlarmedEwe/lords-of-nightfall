@@ -4,6 +4,8 @@
 #include "raylib.h"
 #include "Physics.h"
 #include "GameObject.h"
+#include "Skybox.h"
+#include "LightingSystem.h"
 #include <vector>
 
 struct Scene
@@ -11,6 +13,9 @@ struct Scene
     Camera3D camera = {};
     std::vector<GameObject*> objects;
     Physics physics;
+
+    Skybox skybox;
+    LightingSystem lightingSystem;
 
     // Câmera terceira pessoa
     float cameraYaw = 0.0f;

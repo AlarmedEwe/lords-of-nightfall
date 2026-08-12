@@ -12,12 +12,20 @@ void MainMenuScene::Init()
     camera.fovy = 60.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
+    skybox.Init();
+    lightingSystem.Init(1024);
+
     terrain.Init(physics);
+    terrain.model.materials[0].shader = lightingSystem.shadowShader;
     physics.system.OptimizeBroadPhase();
 
     // Carrega o modelo 3D lonmodel v2 do personagem no Menu Principal
     characterModel.Load("Superhero_Male.lonmodel", "T_Superhero_Male_Ligh.png");
     characterModel.SetAnimation(0); // Idle
+    if (characterModel.isLoaded)
+    {
+        lightingSystem.ApplyToModel(characterModel.rayModel);
+    }
 }
 
 void MainMenuScene::Update(float deltaTime)
@@ -41,16 +49,28 @@ void MainMenuScene::Draw(UISystem& ui, SettingsMenu& settingsMenu, Settings& set
 {
     outAction = MainMenuAction::None;
 
-    // Renderização da Cena 3D
-    BeginMode3D(camera);
-
-    terrain.Draw();
-
-    // Desenha o personagem 3D no centro da cena no terreno
     Vector3 charPos = centerTarget;
     float terrainH = terrain.GetHeightAt(charPos.x, charPos.z);
     charPos.y = terrainH;
     centerTarget.y = charPos.y + 1.0f;
+
+    // Pass 1: Renderiza o mapa de sombras a partir da luz do sol
+    lightingSystem.BeginShadowMapPass(charPos);
+        terrain.Draw();
+        if (characterModel.isLoaded)
+        {
+            characterModel.Draw(charPos, cameraAngle * RAD2DEG, 1.0f, WHITE);
+        }
+    lightingSystem.EndShadowMapPass();
+
+    // Pass 2: Renderização da Cena 3D com Skybox e Sombras
+    skybox.Draw(camera, lightingSystem.lightDir);
+
+    lightingSystem.BindLightingUniforms(camera.position);
+
+    BeginMode3D(camera);
+
+    terrain.Draw();
 
     if (characterModel.isLoaded)
     {
@@ -129,6 +149,8 @@ void MainMenuScene::Draw(UISystem& ui, SettingsMenu& settingsMenu, Settings& set
 
 void MainMenuScene::Shutdown()
 {
+    skybox.Shutdown();
+    lightingSystem.Shutdown();
     characterModel.Unload();
     terrain.Shutdown(physics);
     physics.Shutdown();

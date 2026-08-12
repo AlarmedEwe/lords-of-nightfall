@@ -18,9 +18,15 @@ void App::Init()
     scene.objects.push_back(&player);
     scene.Init();
 
-    // Inicia no Menu Principal com cursor habilitado
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+    // No modo Development e Debug, inicia direto na cena de Gameplay
+    state = GameState::Gameplay;
+    DisableCursor();
+#else
+    // No modo Release, inicia no Menu Principal com cursor habilitado
     state = GameState::MainMenu;
     EnableCursor();
+#endif
 }
 
 void App::StartGameplay()
@@ -98,7 +104,7 @@ void App::Run()
             // Atualiza gameplay apenas quando NÃO estiver pausado
             if (!isPaused)
             {
-                player.facingYaw = scene.cameraYaw;
+                player.cameraYaw = scene.cameraYaw;
                 scene.Update(dt);
                 scene.UpdateCamera(player.position, dt, settings.mouseSensitivity);
             }

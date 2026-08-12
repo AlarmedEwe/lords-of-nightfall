@@ -7,6 +7,8 @@
 #include "GameObjects/TerrainObject.h"
 #include "Physics.h"
 #include "LONModel.h"
+#include "Skybox.h"
+#include "LightingSystem.h"
 
 enum class MainMenuAction
 {
@@ -21,6 +23,8 @@ struct MainMenuScene
     TerrainObject terrain;
     Physics physics;
     LONModel characterModel;
+    Skybox skybox;
+    LightingSystem lightingSystem;
 
     float cameraAngle = 0.0f;
     float cameraDistance = 14.0f;

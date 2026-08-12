@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AssetCooker - Converte assets brutos (FBX, PNG, WAV) em formatos binários/otimizados do motor.
+AssetCooker - Converte assets brutos (FBX, PNG, WAV, GLSL) em formatos binários/otimizados do motor.
 Implementa verificação de timestamp (incremental build) para copiar/processar apenas arquivos modificados.
 """
 
@@ -8,6 +8,33 @@ import sys
 import os
 import shutil
 import subprocess
+
+def cook_shaders(source_dir, output_dir):
+    shaders_src_dir = os.path.join(source_dir, "Shaders")
+    shaders_out_dir = os.path.join(output_dir, "Shaders")
+
+    processed = 0
+    skipped = 0
+
+    if os.path.exists(shaders_src_dir):
+        for root, dirs, files in os.walk(shaders_src_dir):
+            for file in files:
+                if not file.lower().endswith(('.vs', '.fs', '.glsl', '.vert', '.frag')):
+                    continue
+
+                src_file = os.path.join(root, file)
+                rel_path = os.path.relpath(src_file, shaders_src_dir)
+                dst_file = os.path.join(shaders_out_dir, rel_path)
+
+                os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+
+                if not os.path.exists(dst_file) or os.path.getmtime(src_file) > os.path.getmtime(dst_file):
+                    shutil.copy2(src_file, dst_file)
+                    processed += 1
+                else:
+                    skipped += 1
+
+    return processed, skipped
 
 def cook_ui_assets(source_dir, output_dir):
     ui_double_dir = os.path.join(source_dir, "kenney_fantasy-ui-borders", "PNG", "Double")
@@ -220,10 +247,12 @@ def main():
     print(f"[AssetCooker] Source: {source_dir}")
     print(f"[AssetCooker] Output: {output_dir}")
 
+    sh_proc, sh_skip = cook_shaders(source_dir, output_dir)
     ui_proc, ui_skip = cook_ui_assets(source_dir, output_dir)
     cook_character_textures(source_dir, output_dir)
     cook_3d_models(source_dir, output_dir)
 
+    print(f"[AssetCooker] Shaders: {sh_proc} processados, {sh_skip} up-to-date")
     print(f"[AssetCooker] UI Assets: {ui_proc} processados, {ui_skip} up-to-date")
     return 0
 
