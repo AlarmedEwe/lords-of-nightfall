@@ -1,4 +1,5 @@
 #include "PlayerObject.h"
+#include "../Item.h"
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
@@ -87,11 +88,14 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
 
     JPH::Vec3 moveDir = JPH::Vec3::sZero();
 
-    // W: Frente | S: Trás | D: Direita | A: Esquerda
-    if (IsKeyDown(KEY_W)) { moveDir -= JPH::Vec3(camForward.x, 0.0f, camForward.z); }
-    if (IsKeyDown(KEY_S)) { moveDir += JPH::Vec3(camForward.x, 0.0f, camForward.z); }
-    if (IsKeyDown(KEY_D)) { moveDir += JPH::Vec3(camRight.x, 0.0f, camRight.z); }
-    if (IsKeyDown(KEY_A)) { moveDir -= JPH::Vec3(camRight.x, 0.0f, camRight.z); }
+    // W: Frente | S: Trás | D: Direita | A: Esquerda (apenas quando não estiver atacando)
+    if (!isAttacking)
+    {
+        if (IsKeyDown(KEY_W)) { moveDir -= JPH::Vec3(camForward.x, 0.0f, camForward.z); }
+        if (IsKeyDown(KEY_S)) { moveDir += JPH::Vec3(camForward.x, 0.0f, camForward.z); }
+        if (IsKeyDown(KEY_D)) { moveDir += JPH::Vec3(camRight.x, 0.0f, camRight.z); }
+        if (IsKeyDown(KEY_A)) { moveDir -= JPH::Vec3(camRight.x, 0.0f, camRight.z); }
+    }
 
     bool isMoving = moveDir.LengthSq() > 0.001f;
 
@@ -240,16 +244,19 @@ void PlayerObject::Draw()
         equippedArmorModel.Draw(drawPos, meshYaw, 1.0f, WHITE);
     }
 
-    // Renderiza a Arma Equipada anexada à mão do personagem
+    // Renderiza a Arma Equipada anexada à mão do personagem (socket da mão direita)
     if (isWeaponModelLoaded)
     {
         Matrix charMatrix = MatrixMultiply(MatrixRotateY(meshYaw * DEG2RAD), MatrixTranslate(drawPos.x, drawPos.y, drawPos.z));
         Matrix handMatrix = characterModel.GetRightHandMatrix();
 
-        Matrix weaponWorld = MatrixMultiply(handMatrix, charMatrix);
+        // Offset local do modelo da arma (escala e ajuste para a palma da mão)
+        Matrix weaponLocalOffset = MatrixScale(0.85f, 0.85f, 0.85f);
+        Matrix weaponHandMatrix = MatrixMultiply(weaponLocalOffset, handMatrix);
+        Matrix weaponWorld = MatrixMultiply(weaponHandMatrix, charMatrix);
 
         equippedWeaponModel.transform = weaponWorld;
-        DrawModel(equippedWeaponModel, (Vector3){ 0.0f, 0.0f, 0.0f }, 0.85f, WHITE);
+        DrawModel(equippedWeaponModel, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
         equippedWeaponModel.transform = MatrixIdentity();
     }
 }

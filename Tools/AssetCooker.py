@@ -196,7 +196,7 @@ with open(out_model, "wb") as f:
             arm_ev = main_armature.evaluated_get(dg)
             hand_bone = arm_ev.pose.bones.get('hand_r')
             if hand_bone:
-                mat_b = np.array(hand_bone.matrix, dtype=np.float32)
+                mat_b = np.array(main_armature.matrix_world @ hand_bone.matrix, dtype=np.float32)
                 mat_r = P @ mat_b @ P_inv
             else:
                 mat_r = np.eye(4, dtype=np.float32)
