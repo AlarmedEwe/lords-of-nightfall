@@ -1,0 +1,24 @@
+# Build outputs & binaries
+Build/
+
+# External 3rd party libraries
+Game/ThirdParty/
+
+# Python environment & cache
+.venv/
+__pycache__/
+*.pyc
+
+# Raw 3D Assets & Binary Media (handled by AssetCooker)
+Game/Assets/
+*.fbx
+*.lonmodel
+*.obj
+*.png
+*.wav
+*.mp3
+
+# Git & Editor metadata
+.git/
+.vscode/
+.idea/
