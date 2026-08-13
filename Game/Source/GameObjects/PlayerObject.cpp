@@ -2,6 +2,29 @@
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
+#include <vector>
+
+static Model TryLoadModel(const char* relPath)
+{
+    if (!relPath || relPath[0] == '\0') return (Model){ 0 };
+
+    std::vector<std::string> candidatePaths = {
+        relPath,
+        std::string("Assets/") + relPath,
+        std::string("Build/Development/Assets/") + relPath
+    };
+
+    for (const std::string& path : candidatePaths)
+    {
+        if (FileExists(path.c_str()))
+        {
+            Model m = LoadModel(path.c_str());
+            if (m.meshCount > 0)
+                return m;
+        }
+    }
+    return (Model){ 0 };
+}
 
 void PlayerObject::Init(Physics& physics)
 {
@@ -26,8 +49,8 @@ void PlayerObject::Init(Physics& physics)
     character->SetUp(JPH::Vec3(0.0f, 1.0f, 0.0f));
     position = {0.0f, 5.0f, 0.0f};
 
-    // Carrega o modelo 3D lonmodel v2 do personagem Superhero Male com animações
-    characterModel.Load("Superhero_Male.lonmodel", "T_Superhero_Male_Ligh.png");
+    // Carrega o modelo 3D lonmodel do personagem com animações
+    characterModel.Load(currentOutfitModel.c_str(), currentOutfitTexture.c_str());
 }
 
 void PlayerObject::Update(Physics& physics, float deltaTime)
@@ -35,6 +58,23 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     // Ground check do Jolt CharacterVirtual
     JPH::CharacterVirtual::EGroundState groundState = character->GetGroundState();
     onGround = (groundState == JPH::CharacterVirtual::EGroundState::OnGround) || character->IsSupported();
+
+    // Início / Atualização do Ataque (Botão Esquerdo do Mouse)
+    if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT)) && !isAttacking)
+    {
+        isAttacking = true;
+        attackTimer = 0.0f;
+    }
+
+    if (isAttacking)
+    {
+        attackTimer += deltaTime;
+        if (attackTimer >= attackDuration)
+        {
+            isAttacking = false;
+            attackTimer = 0.0f;
+        }
+    }
 
     // Shift para correr
     bool isRunning = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
@@ -112,37 +152,76 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     position.y = (float)charPos.GetY();
     position.z = (float)charPos.GetZ();
 
-    // Atualiza estado de animação e reproduz no modelo
-    if (!onGround)
+    // Atualiza estado de animação e reproduz nos modelos
+    int currentAnimIndex = 0;
+    if (isAttacking)
+    {
+        animState = PlayerAnimState::Attack;
+        currentAnimIndex = 4; // Attack
+    }
+    else if (!onGround)
     {
         animState = PlayerAnimState::Jump;
-        characterModel.SetAnimation(3); // Jump
+        currentAnimIndex = 3; // Jump
     }
     else if (isMoving)
     {
         if (isRunning)
         {
             animState = PlayerAnimState::Run;
-            characterModel.SetAnimation(2); // Run
+            currentAnimIndex = 2; // Run
         }
         else
         {
             animState = PlayerAnimState::Walk;
-            characterModel.SetAnimation(1); // Walk
+            currentAnimIndex = 1; // Walk
         }
     }
     else
     {
         animState = PlayerAnimState::Idle;
-        characterModel.SetAnimation(0); // Idle
+        currentAnimIndex = 0; // Idle (sempre Idle padrão em pé)
     }
 
+    characterModel.SetAnimation(currentAnimIndex);
     characterModel.Update(deltaTime);
+
+    if (isArmorModelLoaded)
+    {
+        equippedArmorModel.SetAnimation(currentAnimIndex);
+        equippedArmorModel.Update(deltaTime);
+    }
+
+    // Verifica se a armadura equipada exige troca de outfit visual
+    std::string targetModel = inventory.equippedArmor.IsValid() ? inventory.equippedArmor.outfitModelFile : "";
+    std::string targetTex = inventory.equippedArmor.IsValid() ? inventory.equippedArmor.outfitTextureFile : "";
+
+    if (targetModel != currentOutfitModel)
+    {
+        SetOutfit(targetModel, targetTex);
+    }
+
+    // Atualiza o Modelo 3D da Arma Equipada
+    std::string targetWeaponPath = inventory.equippedWeapon.IsValid() ? inventory.equippedWeapon.modelFileName : "";
+    if (targetWeaponPath != loadedWeaponModelPath)
+    {
+        if (isWeaponModelLoaded)
+        {
+            UnloadModel(equippedWeaponModel);
+            isWeaponModelLoaded = false;
+        }
+
+        loadedWeaponModelPath = targetWeaponPath;
+        if (!loadedWeaponModelPath.empty())
+        {
+            equippedWeaponModel = TryLoadModel(loadedWeaponModelPath.c_str());
+            isWeaponModelLoaded = (equippedWeaponModel.meshCount > 0);
+        }
+    }
 }
 
 void PlayerObject::Draw()
 {
-    // O centro do cápsula fica a 0.9m acima dos pés. Deslocamos o modelo para que os pés fiquem perfeitamente no chão.
     float feetOffset = 0.9f;
     Vector3 drawPos = { position.x, position.y - feetOffset, position.z };
 
@@ -152,9 +231,26 @@ void PlayerObject::Draw()
     }
     else
     {
-        // Fallback visual
         DrawCube(position, 0.6f, 1.8f, 0.6f, BLUE);
         DrawCubeWires(position, 0.61f, 1.81f, 0.61f, DARKBLUE);
+    }
+
+    if (isArmorModelLoaded)
+    {
+        equippedArmorModel.Draw(drawPos, meshYaw, 1.0f, WHITE);
+    }
+
+    // Renderiza a Arma Equipada anexada à mão do personagem
+    if (isWeaponModelLoaded)
+    {
+        Matrix charMatrix = MatrixMultiply(MatrixRotateY(meshYaw * DEG2RAD), MatrixTranslate(drawPos.x, drawPos.y, drawPos.z));
+        Matrix handMatrix = characterModel.GetRightHandMatrix();
+
+        Matrix weaponWorld = MatrixMultiply(handMatrix, charMatrix);
+
+        equippedWeaponModel.transform = weaponWorld;
+        DrawModel(equippedWeaponModel, (Vector3){ 0.0f, 0.0f, 0.0f }, 0.85f, WHITE);
+        equippedWeaponModel.transform = MatrixIdentity();
     }
 }
 
@@ -162,9 +258,68 @@ void PlayerObject::Shutdown(Physics& physics)
 {
     (void)physics;
     characterModel.Unload();
+    if (isArmorModelLoaded)
+    {
+        equippedArmorModel.Unload();
+        isArmorModelLoaded = false;
+    }
+
+    if (isWeaponModelLoaded)
+    {
+        UnloadModel(equippedWeaponModel);
+        isWeaponModelLoaded = false;
+    }
 
     delete character;
     character = nullptr;
     delete characterSettings;
     characterSettings = nullptr;
+}
+
+void PlayerObject::Heal(float amount)
+{
+    health = std::min(maxHealth, health + amount);
+}
+
+void PlayerObject::AddXp(float amount)
+{
+    xp += amount;
+    while (xp >= maxXp)
+    {
+        xp -= maxXp;
+        level++;
+        maxXp *= 1.25f;
+        maxHealth += 20.0f;
+        health = maxHealth;
+        baseAttack += 5.0f;
+        baseDefense += 2.0f;
+    }
+}
+
+void PlayerObject::SetOutfit(const std::string& modelFile, const std::string& textureFile)
+{
+    currentOutfitModel = modelFile;
+    currentOutfitTexture = textureFile;
+
+    if (isArmorModelLoaded)
+    {
+        equippedArmorModel.Unload();
+        isArmorModelLoaded = false;
+    }
+
+    if (!modelFile.empty() && modelFile != "Superhero_Male.lonmodel")
+    {
+        equippedArmorModel.Load(modelFile.c_str(), textureFile.c_str());
+        isArmorModelLoaded = equippedArmorModel.isLoaded;
+    }
+}
+
+float PlayerObject::GetTotalAttack() const
+{
+    return baseAttack + inventory.GetTotalAttackBonus();
+}
+
+float PlayerObject::GetTotalDefense() const
+{
+    return baseDefense + inventory.GetTotalDefenseBonus();
 }

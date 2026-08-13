@@ -78,6 +78,8 @@ void LONModel::Load(const char* lonmodelPath, const char* texturePath)
     }
 
     animClips.resize(numAnims);
+    handFrames.resize(numAnims);
+
     for (uint32_t a = 0; a < numAnims; a++)
     {
         char nameBuf[32] = {0};
@@ -90,6 +92,15 @@ void LONModel::Load(const char* lonmodelPath, const char* texturePath)
             animClips[a].name = nameBuf;
             animClips[a].frameCount = fCount;
             animClips[a].fps = fps;
+        }
+
+        if (version >= 3)
+        {
+            handFrames[a].resize(fCount);
+            for (uint32_t fr = 0; fr < fCount; fr++)
+            {
+                fread(&handFrames[a][fr], sizeof(float), 16, f);
+            }
         }
     }
 
@@ -177,8 +188,8 @@ void LONModel::Load(const char* lonmodelPath, const char* texturePath)
     prevAnimTime = 0.0f;
     isBlending = false;
 
-    TraceLog(LOG_INFO, "[LONModel] Modelo v2 %s carregado com sucesso (%d submeshes, %d clipes de animação)",
-             lonmodelPath, numMeshes, numAnims);
+    TraceLog(LOG_INFO, "[LONModel] Modelo v%d %s carregado com sucesso (%d submeshes, %d clipes de animação)",
+             version, lonmodelPath, numMeshes, numAnims);
 }
 
 void LONModel::SetAnimation(int animIndex)
@@ -230,6 +241,43 @@ void LONModel::Update(float deltaTime)
             if (prevClip->frameCount > 0)
             {
                 prevFrameIdx = (uint32_t)fmodf(prevAnimTime, (float)prevClip->frameCount);
+            }
+        }
+    }
+
+    // Atualiza matriz da mão direita (handFrames)
+    if (!handFrames.empty() && currentAnimIndex < (int)handFrames.size())
+    {
+        const auto& currHandClips = handFrames[currentAnimIndex];
+        if (frameIdx < currHandClips.size())
+        {
+            Matrix currMat = currHandClips[frameIdx];
+
+            if (isBlending && prevClip && prevAnimIndex < (int)handFrames.size())
+            {
+                const auto& prevHandClips = handFrames[prevAnimIndex];
+                if (prevFrameIdx < prevHandClips.size())
+                {
+                    Matrix prevMat = prevHandClips[prevFrameIdx];
+
+                    Vector3 pPos = { prevMat.m12, prevMat.m13, prevMat.m14 };
+                    Vector3 cPos = { currMat.m12, currMat.m13, currMat.m14 };
+                    Vector3 bPos = Vector3Lerp(pPos, cPos, blendFactor);
+
+                    Quaternion pRot = QuaternionFromMatrix(prevMat);
+                    Quaternion cRot = QuaternionFromMatrix(currMat);
+                    Quaternion bRot = QuaternionSlerp(pRot, cRot, blendFactor);
+
+                    currentRightHandMatrix = MatrixMultiply(QuaternionToMatrix(bRot), MatrixTranslate(bPos.x, bPos.y, bPos.z));
+                }
+                else
+                {
+                    currentRightHandMatrix = currMat;
+                }
+            }
+            else
+            {
+                currentRightHandMatrix = currMat;
             }
         }
     }
@@ -288,5 +336,7 @@ void LONModel::Unload()
     rayModel = (Model){ 0 };
     submeshAnims.clear();
     animClips.clear();
+    handFrames.clear();
+    currentRightHandMatrix = MatrixIdentity();
     isLoaded = false;
 }

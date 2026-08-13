@@ -119,8 +119,12 @@ Para o estilo visual da UI do jogo, utilize os assets que eu coloquei na pasta `
 
 ## Milestone 04: Personagem principal com animações
 Agora nós vamos melhorar o nosso sistema de asset cooking para ler o FBX e criar um formato próprio junto ao executável do jogo dentro da pasta assets, que vai junto ao executável de forma que a gente consiga importar os nossos modelos e animações e executar eles dentro do jogo. Implemente a seção Assets 3D do jogo neste documento. Especifique os assets do personagem. O personagem principal, então, deve ter a forma visual do personagem base e deve ter animações: ele parado, ele andando, correndo, pulando, etc.
+**REGRA OBRIGATÓRIA DE ANIMAÇÃO:** A animação base do personagem parado DEVE ser SEMPRE a animação padrão em pé (`Idle_Loop`), JAMAIS utilizar `Crouch_Idle` ou qualquer outra animação agachada.
 
 ## Milestone 05: Sistema de vida, XP do personagem + ataques, etc.
+Adicionei vários itens em FBX em `Game/Assets/Ultimate RPG Items Pack`. Itens como armas por personagem, machado, espada, etc, poções. Agora quero que você implemente ataques para quando eu apertar o botão esquerdo, clicar e segurar o botão esquerdo do mouse, o personagem conseguir atacar com animação e também tenha o sistema de vida, de experiência do personagem, etc. Então, já vai fazer a interface do jogo aqui, bem bonito, bem polida, com tudo que precisa para esse jogo.
+
+E aí eu quero que você coloque no chão ali, espalhado para gente testar itens que, se eu chegar perto, vai aparecer na interface para eu apertar `E` e coletar. E se eu apertar E e coletar, ele coleta para o inventário. Então, eu preciso também ter um sistema de inventário que eu possa abrir e fechar na interface, e aí esse inventário vai ter os slots, e eu posso arrastar os slots de um lugar para o outro, dropar o item ou equipar o item, ou também utilizar o item no caso da poção. Eu também quero itens no chão com armadura para eu coletar, equipar e isso alterar o visual do personagem para os dois FBXs que eu tenho na pasta para as skins do personagem. Lembre de usar o sistema de asset cooking.
 
 ## Milestone 06: Inimigos (lógica + animações)
 

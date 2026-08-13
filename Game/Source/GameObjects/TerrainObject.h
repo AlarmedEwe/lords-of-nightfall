@@ -11,6 +11,7 @@ struct TerrainObject : public GameObject
     static constexpr float TERRAIN_SCALE = 1.0f;    // espaçamento entre vértices
     static constexpr float HEIGHT_SCALE = 8.0f;     // amplitude máxima de altura
     std::vector<float> heightData;
+    static TerrainObject* s_Instance;
 
     // Rendering
     Mesh mesh = {};

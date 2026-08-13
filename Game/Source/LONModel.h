@@ -2,6 +2,7 @@
 #define LON_MODEL_H
 
 #include "raylib.h"
+#include "raymath.h"
 #include <cstdint>
 #include <vector>
 #include <string>
@@ -26,6 +27,9 @@ struct LONModel
 
     std::vector<LONAnimClip> animClips;
     std::vector<LONSubmeshAnimFrames> submeshAnims;
+    // handFrames[clipIndex][frameIndex] -> Matrix (mão direita em espaço do modelo)
+    std::vector<std::vector<Matrix>> handFrames;
+    Matrix currentRightHandMatrix = MatrixIdentity();
 
     int currentAnimIndex = 0;
     int prevAnimIndex = 0;
@@ -42,6 +46,7 @@ struct LONModel
     void SetAnimation(int animIndex);
     void Update(float deltaTime);
     void Draw(Vector3 position, float yaw, float scale = 1.0f, Color tint = WHITE);
+    Matrix GetRightHandMatrix() const { return currentRightHandMatrix; }
     void Unload();
 };
 

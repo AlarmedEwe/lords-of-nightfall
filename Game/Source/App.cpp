@@ -1,50 +1,7 @@
 #include "App.h"
 #include "raylib.h"
-
-void App::Init()
-{
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
-    InitWindow(screenWidth, screenHeight, "Lords of Nightfall");
-    SetTargetFPS(60);
-    SetExitKey(KEY_NULL); // Impede que a tecla ESC feche a aplicação automaticamente
-
-    settings.Init();
-    ui.Init();
-
-    mainMenuScene.Init();
-
-    // Inicializa a cena de gameplay
-    scene.objects.push_back(&terrain);
-    scene.objects.push_back(&player);
-    scene.Init();
-
-#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
-    // No modo Development e Debug, inicia direto na cena de Gameplay
-    state = GameState::Gameplay;
-    DisableCursor();
-#else
-    // No modo Release, inicia no Menu Principal com cursor habilitado
-    state = GameState::MainMenu;
-    EnableCursor();
-#endif
-}
-
-void App::StartGameplay()
-{
-    state = GameState::Gameplay;
-    isPaused = false;
-    settingsMenu.isOpen = false;
-    DisableCursor();
-}
-
-void App::ReturnToMainMenu()
-{
-    state = GameState::MainMenu;
-    isPaused = false;
-    settingsMenu.isOpen = false;
-    EnableCursor();
-}
-
+#include "raymath.h"
+#include <cmath>
 #include <ctime>
 #include <cstdlib>
 #include <string>
@@ -62,28 +19,77 @@ static void CaptureScreenshotToDiskAndClipboard()
     mkdir(screenshotDir.c_str(), 0755);
 
     time_t rawtime;
+    struct tm* timeinfo;
+    char timeBuffer[80];
     time(&rawtime);
-    struct tm* timeinfo = localtime(&rawtime);
-    char filename[80];
-    strftime(filename, sizeof(filename), "/LON_%Y-%m-%d_%H-%M-%S.png", timeinfo);
+    timeinfo = localtime(&rawtime);
+    strftime(timeBuffer, sizeof(timeBuffer), "LON_%Y-%m-%d_%H-%M-%S.png", timeinfo);
 
-    std::string fullPath = screenshotDir + filename;
-
+    std::string fullPath = screenshotDir + "/" + timeBuffer;
     TakeScreenshot(fullPath.c_str());
-    TraceLog(LOG_INFO, "[Screenshot] Captura salva em: %s", fullPath.c_str());
 
-    std::string copyCmd = "python3 -c \"import gi; gi.require_version('Gtk','3.0'); from gi.repository import Gtk, Gdk, GdkPixbuf; pb=GdkPixbuf.Pixbuf.new_from_file('" + fullPath + "'); cb=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD); cb.set_image(pb); cb.store()\" 2>/dev/null || xclip -selection clipboard -t image/png -i \"" + fullPath + "\" 2>/dev/null || wl-copy -t image/png < \"" + fullPath + "\" 2>/dev/null &";
+    std::string copyCmd = "python3 -c \"import gi; gi.require_version('Gdk', '3.0'); gi.require_version('Gtk', '3.0'); from gi.repository import Gtk, Gdk, GdkPixbuf; pixbuf = GdkPixbuf.Pixbuf.new_from_file('" + fullPath + "'); clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD); clipboard.set_image(pixbuf); clipboard.store()\"";
     (void)system(copyCmd.c_str());
 }
 #endif
 
+void App::Init()
+{
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
+    InitWindow(screenWidth, screenHeight, "Lords of Nightfall");
+    SetTargetFPS(60);
+    SetExitKey(KEY_NULL);
+
+    settings.Init();
+    ui.Init();
+
+    mainMenuScene.Init();
+
+    // Inicializa a cena de gameplay com o jogador e o terreno
+    scene.objects.push_back(&terrain);
+    scene.objects.push_back(&player);
+
+    // Spawna Pickups de teste espalhados pelo terreno
+    scene.objects.push_back(new PickupObject(Items::CreateSword(), (Vector3){ 4.0f, 0.0f, 4.0f }));
+    scene.objects.push_back(new PickupObject(Items::CreateAxe(), (Vector3){ -4.0f, 0.0f, 3.0f }));
+    scene.objects.push_back(new PickupObject(Items::CreateHealthPotion(), (Vector3){ 2.0f, 0.0f, -5.0f }));
+    scene.objects.push_back(new PickupObject(Items::CreateRangerArmor(), (Vector3){ -3.0f, 0.0f, -4.0f }));
+    scene.objects.push_back(new PickupObject(Items::CreatePeasantOutfit(), (Vector3){ 5.0f, 0.0f, -3.0f }));
+
+    scene.Init();
+
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+    state = GameState::Gameplay;
+    DisableCursor();
+#else
+    state = GameState::MainMenu;
+    EnableCursor();
+#endif
+}
+
+void App::StartGameplay()
+{
+    state = GameState::Gameplay;
+    isPaused = false;
+    isInventoryOpen = false;
+    settingsMenu.isOpen = false;
+    DisableCursor();
+}
+
+void App::ReturnToMainMenu()
+{
+    state = GameState::MainMenu;
+    isPaused = false;
+    isInventoryOpen = false;
+    settingsMenu.isOpen = false;
+    EnableCursor();
+}
+
 void App::Run()
 {
-    while (!WindowShouldClose() && running)
+    while (running && !WindowShouldClose())
     {
         float dt = GetFrameTime();
-        if (dt > 0.1f) dt = 0.1f; // Clamp para evitar instabilidade da física
-
         screenWidth = GetScreenWidth();
         screenHeight = GetScreenHeight();
 
@@ -102,14 +108,11 @@ void App::Run()
             }
 
             mainMenuScene.Update(dt);
-
             MainMenuAction action = MainMenuAction::None;
 
             BeginDrawing();
             ClearBackground((Color){15, 12, 22, 255});
-
             mainMenuScene.Draw(ui, settingsMenu, settings, screenWidth, screenHeight, action);
-
             EndDrawing();
 
             if (action == MainMenuAction::Play)
@@ -123,41 +126,106 @@ void App::Run()
         }
         else if (state == GameState::Gameplay)
         {
-            // Trata tecla ESC para pausar/despausar ou fechar menu de configurações
+            // Toggle Inventário (I ou TAB)
+            if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB))
+            {
+                if (!isPaused)
+                {
+                    isInventoryOpen = !isInventoryOpen;
+                    if (isInventoryOpen) EnableCursor();
+                    else DisableCursor();
+                }
+            }
+
+            // Tecla ESC (Pausa ou Fecha Inventário/Configurações)
             if (IsKeyPressed(KEY_ESCAPE))
             {
                 if (settingsMenu.isOpen)
                 {
                     settingsMenu.isOpen = false;
                 }
+                else if (isInventoryOpen)
+                {
+                    isInventoryOpen = false;
+                    DisableCursor();
+                }
                 else
                 {
                     isPaused = !isPaused;
-                    if (isPaused)
-                        EnableCursor();
-                    else
-                        DisableCursor();
+                    if (isPaused) EnableCursor();
+                    else DisableCursor();
                 }
             }
 
-            // Atualiza gameplay apenas quando NÃO estiver pausado
-            if (!isPaused)
+            // Atualiza gameplay quando não pausado nem no inventário
+            if (!isPaused && !isInventoryOpen)
             {
                 player.cameraYaw = scene.cameraYaw;
                 scene.Update(dt);
                 scene.UpdateCamera(player.position, dt, settings.mouseSensitivity);
             }
 
-            // Renderização
+            // Interação com Pickups no mundo
+            activePromptText = "";
+            PickupObject* closestPickup = nullptr;
+            float minDistance = 2.5f;
+
+            for (auto* obj : scene.objects)
+            {
+                if (auto* pickup = dynamic_cast<PickupObject*>(obj))
+                {
+                    if (!pickup->isCollected)
+                    {
+                        float dist = Vector3Distance(player.position, pickup->position);
+                        if (dist < minDistance)
+                        {
+                            minDistance = dist;
+                            closestPickup = pickup;
+                        }
+                    }
+                }
+            }
+
+            if (closestPickup)
+            {
+                activePromptText = TextFormat("Pressione [E] para coletar: %s", closestPickup->item.name.c_str());
+                if (!isPaused && !isInventoryOpen && IsKeyPressed(KEY_E))
+                {
+                    if (player.inventory.AddItem(closestPickup->item))
+                    {
+                        closestPickup->isCollected = true;
+                    }
+                }
+            }
+
+            // Renderização da Cena
             BeginDrawing();
             ClearBackground((Color){20, 20, 30, 255});
 
             scene.Draw();
 
+            // Desenha HUD do RPG
+            ui.DrawHUD(player, activePromptText.c_str());
+
+            // Desenha Tela de Inventário
+            int droppedSlot = -1;
+            ui.DrawInventory(player, isInventoryOpen, droppedSlot);
+
+            if (droppedSlot >= 0)
+            {
+                Item item = player.inventory.slots[droppedSlot];
+                if (item.IsValid() && player.inventory.RemoveItem(droppedSlot))
+                {
+                    Vector3 dropPos = { player.position.x + sinf(player.meshYaw * DEG2RAD) * 1.5f, player.position.y, player.position.z + cosf(player.meshYaw * DEG2RAD) * 1.5f };
+                    auto* newPickup = new PickupObject(item, dropPos);
+                    newPickup->Init(scene.physics);
+                    scene.objects.push_back(newPickup);
+                }
+            }
+
             // Overlay de Pausa
             if (isPaused)
             {
-                // Fundo escuro cobrindo o jogo
                 DrawRectangle(0, 0, screenWidth, screenHeight, (Color){0, 0, 0, 170});
 
                 if (settingsMenu.isOpen)
@@ -184,7 +252,6 @@ void App::Run()
                     float btnH = 44.0f;
                     float btnX = panelX + 30.0f;
 
-                    // 1. Continuar
                     Rectangle btnResume = { btnX, btnY, btnW, btnH };
                     if (ui.DrawButton(btnResume, "CONTINUAR"))
                     {
@@ -192,34 +259,24 @@ void App::Run()
                         DisableCursor();
                     }
 
-                    // 2. Configurações
                     Rectangle btnSettings = { btnX, btnY + 60.0f, btnW, btnH };
                     if (ui.DrawButton(btnSettings, "CONFIGURAÇÕES"))
                     {
                         settingsMenu.isOpen = true;
                     }
 
-                    // 3. Voltar ao Menu
                     Rectangle btnMenu = { btnX, btnY + 120.0f, btnW, btnH };
                     if (ui.DrawButton(btnMenu, "VOLTAR AO MENU"))
                     {
                         ReturnToMainMenu();
                     }
 
-                    // 4. Sair
                     Rectangle btnQuit = { btnX, btnY + 180.0f, btnW, btnH };
                     if (ui.DrawButton(btnQuit, "SAIR"))
                     {
                         running = false;
                     }
                 }
-            }
-            else
-            {
-                // HUD Mínimo durante o jogo
-                DrawFPS(10, 10);
-                DrawText("WASD: Mover | Mouse: Câmera | Espaço: Pular | ESC: Pausa",
-                         10, screenHeight - 30, 16, RAYWHITE);
             }
 
             EndDrawing();

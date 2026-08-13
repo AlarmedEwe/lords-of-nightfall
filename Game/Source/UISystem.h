@@ -2,6 +2,9 @@
 #define UI_SYSTEM_H
 
 #include "raylib.h"
+#include "GameObjects/PlayerObject.h"
+#include <unordered_map>
+#include <string>
 
 struct UISystem
 {
@@ -11,8 +14,15 @@ struct UISystem
     Texture2D dividerTexture = {};
     bool isLoaded = false;
 
+    // Cache de Texturas de Ícones dos Itens
+    std::unordered_map<std::string, Texture2D> iconCache;
+    int selectedSlot = -1; // Slot selecionado no Inventário
+
     void Init();
     void Shutdown();
+
+    // Icon helper
+    Texture2D GetIcon(const std::string& path);
 
     // Render Helpers
     void DrawPanel(Rectangle rect, Color tint = (Color){25, 22, 35, 240});
@@ -26,6 +36,10 @@ struct UISystem
     bool DrawOptionSelector(Rectangle rect, const char* label, const char* currentOption);
     void DrawDivider(float posX, float posY, float width);
     void DrawHeader(Rectangle rect, const char* title);
+
+    // RPG HUD & Inventory System
+    void DrawHUD(const PlayerObject& player, const char* promptText);
+    void DrawInventory(PlayerObject& player, bool& isOpen, int& outDroppedSlot);
 };
 
 #endif // UI_SYSTEM_H

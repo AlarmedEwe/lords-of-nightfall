@@ -128,8 +128,11 @@ void TerrainObject::GenerateMesh()
     meshGenerated = true;
 }
 
+TerrainObject* TerrainObject::s_Instance = nullptr;
+
 void TerrainObject::Init(Physics& physics)
 {
+    s_Instance = this;
     GenerateHeightmap();
     GenerateMesh();
 
@@ -182,6 +185,7 @@ void TerrainObject::Draw()
 
 void TerrainObject::Shutdown(Physics& physics)
 {
+    if (s_Instance == this) s_Instance = nullptr;
     JPH::BodyInterface& bodyInterface = physics.system.GetBodyInterface();
     bodyInterface.RemoveBody(bodyId);
     bodyInterface.DestroyBody(bodyId);

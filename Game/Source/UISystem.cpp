@@ -8,7 +8,8 @@ static Texture2D TryLoadTexture(const char* relPath)
         relPath,
         TextFormat("Assets/%s", relPath),
         TextFormat("Build/Development/Assets/%s", relPath),
-        TextFormat("Game/Assets/kenney_fantasy-ui-borders/PNG/Double/%s", relPath)
+        TextFormat("Game/Assets/kenney_fantasy-ui-borders/PNG/Double/%s", relPath),
+        TextFormat("Game/Assets/Ultimate RPG Items Pack/%s", relPath)
     };
 
     for (const char* path : candidatePaths)
@@ -39,7 +40,29 @@ void UISystem::Shutdown()
     if (borderTexture.id > 0) UnloadTexture(borderTexture);
     if (buttonTexture.id > 0) UnloadTexture(buttonTexture);
     if (dividerTexture.id > 0) UnloadTexture(dividerTexture);
+
+    for (auto& pair : iconCache)
+    {
+        if (pair.second.id > 0) UnloadTexture(pair.second);
+    }
+    iconCache.clear();
+
     isLoaded = false;
+}
+
+Texture2D UISystem::GetIcon(const std::string& path)
+{
+    if (path.empty()) return (Texture2D){ 0 };
+    auto it = iconCache.find(path);
+    if (it != iconCache.end()) return it->second;
+
+    Texture2D tex = TryLoadTexture(path.c_str());
+    if (tex.id > 0)
+    {
+        iconCache[path] = tex;
+        return tex;
+    }
+    return (Texture2D){ 0 };
 }
 
 void UISystem::DrawPanel(Rectangle rect, Color tint)
@@ -74,7 +97,6 @@ void UISystem::DrawBorder(Rectangle rect, Color color, float thickness)
     else
     {
         DrawRectangleLinesEx(rect, thickness, color);
-        // Cantos fantasia decorativos
         float cornerLen = 12.0f;
         DrawRectangle(rect.x - 2, rect.y - 2, cornerLen, 4, color);
         DrawRectangle(rect.x - 2, rect.y - 2, 4, cornerLen, color);
@@ -114,7 +136,7 @@ bool UISystem::DrawButton(Rectangle rect, const char* text, bool active)
 
     DrawBorder(rect, borderColor, hovered ? 2.5f : 1.5f);
 
-    int fontSize = 20;
+    int fontSize = 18;
     int textWidth = MeasureText(text, fontSize);
     int posX = rect.x + (rect.width - textWidth) / 2;
     int posY = rect.y + (rect.height - fontSize) / 2;
@@ -255,4 +277,245 @@ void UISystem::DrawHeader(Rectangle rect, const char* title)
     int fontSize = 24;
     int titleW = MeasureText(title, fontSize);
     DrawText(title, rect.x + (rect.width - titleW) / 2, rect.y + (rect.height - fontSize) / 2, fontSize, (Color){255, 225, 120, 255});
+}
+
+void UISystem::DrawHUD(const PlayerObject& player, const char* promptText)
+{
+    // Painel Principal do HUD (Canto Superior Esquerdo)
+    Rectangle hudPanel = { 20.0f, 20.0f, 340.0f, 130.0f };
+    DrawPanel(hudPanel, (Color){20, 16, 28, 230});
+
+    // Badge do Nível do Jogador
+    Rectangle lvlBadge = { hudPanel.x + 15, hudPanel.y + 15, 80, 32 };
+    DrawRectangleRounded(lvlBadge, 0.3f, 4, (Color){60, 42, 18, 250});
+    DrawBorder(lvlBadge, (Color){245, 200, 80, 255}, 1.5f);
+
+    char lvlStr[32];
+    snprintf(lvlStr, sizeof(lvlStr), "NIVEL %d", player.level);
+    int lvlW = MeasureText(lvlStr, 14);
+    DrawText(lvlStr, lvlBadge.x + (lvlBadge.width - lvlW) / 2, lvlBadge.y + 9, 14, (Color){255, 230, 120, 255});
+
+    // Barra de Vida (HP)
+    Rectangle hpBarBg = { hudPanel.x + 105, hudPanel.y + 15, 220, 20 };
+    float hpPercent = Clamp(player.health / player.maxHealth, 0.0f, 1.0f);
+    Rectangle hpBarFill = { hpBarBg.x + 2, hpBarBg.y + 2, (hpBarBg.width - 4) * hpPercent, hpBarBg.height - 4 };
+
+    DrawRectangleRounded(hpBarBg, 0.3f, 4, (Color){40, 12, 12, 240});
+    DrawRectangleRounded(hpBarFill, 0.3f, 4, (Color){210, 40, 40, 255});
+    DrawRectangleLinesEx(hpBarBg, 1.5f, (Color){180, 120, 50, 240});
+
+    char hpStr[32];
+    snprintf(hpStr, sizeof(hpStr), "HP: %.0f / %.0f", player.health, player.maxHealth);
+    int hpW = MeasureText(hpStr, 12);
+    DrawText(hpStr, hpBarBg.x + (hpBarBg.width - hpW) / 2, hpBarBg.y + 4, 12, WHITE);
+
+    // Barra de Experiência (XP)
+    Rectangle xpBarBg = { hudPanel.x + 105, hudPanel.y + 42, 220, 16 };
+    float xpPercent = Clamp(player.xp / player.maxXp, 0.0f, 1.0f);
+    Rectangle xpBarFill = { xpBarBg.x + 2, xpBarBg.y + 2, (xpBarBg.width - 4) * xpPercent, xpBarBg.height - 4 };
+
+    DrawRectangleRounded(xpBarBg, 0.3f, 4, (Color){20, 15, 35, 240});
+    DrawRectangleRounded(xpBarFill, 0.3f, 4, (Color){160, 60, 220, 255});
+    DrawRectangleLinesEx(xpBarBg, 1.5f, (Color){140, 100, 180, 240});
+
+    char xpStr[32];
+    snprintf(xpStr, sizeof(xpStr), "XP: %.0f / %.0f", player.xp, player.maxXp);
+    int xpW = MeasureText(xpStr, 11);
+    DrawText(xpStr, xpBarBg.x + (xpBarBg.width - xpW) / 2, xpBarBg.y + 2, 11, (Color){240, 220, 255, 255});
+
+    // Exibição de Stats de Combate (Ataque / Defesa)
+    char statsStr[64];
+    snprintf(statsStr, sizeof(statsStr), "Ataque: %.0f   Defesa: %.0f", player.GetTotalAttack(), player.GetTotalDefense());
+    DrawText(statsStr, hudPanel.x + 15, hudPanel.y + 70, 14, (Color){220, 210, 180, 255});
+
+    // Dica de Controles Rápida
+    DrawText("[I] Inventario | [Mouse 1] Atacar | [WASD] Mover", hudPanel.x + 15, hudPanel.y + 100, 12, (Color){160, 150, 140, 220});
+
+    // Prompt de Interação no Centro da Tela quando próximo de Pickups
+    if (promptText && promptText[0] != '\0')
+    {
+        float sw = (float)GetScreenWidth();
+        float sh = (float)GetScreenHeight();
+        Rectangle promptBox = { sw / 2.0f - 210.0f, sh - 100.0f, 420.0f, 44.0f };
+
+        DrawPanel(promptBox, (Color){25, 20, 15, 240});
+        DrawBorder(promptBox, (Color){255, 215, 80, 255}, 2.0f);
+
+        int textW = MeasureText(promptText, 18);
+        DrawText(promptText, promptBox.x + (promptBox.width - textW) / 2.0f, promptBox.y + 13.0f, 18, (Color){255, 235, 130, 255});
+    }
+}
+
+void UISystem::DrawInventory(PlayerObject& player, bool& isOpen, int& outDroppedSlot)
+{
+    outDroppedSlot = -1;
+    if (!isOpen) return;
+
+    float sw = (float)GetScreenWidth();
+    float sh = (float)GetScreenHeight();
+    Rectangle invRect = { sw / 2.0f - 320.0f, sh / 2.0f - 240.0f, 640.0f, 480.0f };
+
+    // Fundo escurecido atrás do inventário
+    DrawRectangle(0, 0, (int)sw, (int)sh, (Color){ 0, 0, 0, 160 });
+
+    // Janela Principal
+    DrawPanel(invRect, (Color){22, 18, 28, 250});
+    DrawHeader((Rectangle){ invRect.x, invRect.y, invRect.width, 45.0f }, "INVENTARIO DE EQUIPAMENTOS");
+
+    // Botão Fechar [X]
+    Rectangle closeBtn = { invRect.x + invRect.width - 40, invRect.y + 8, 30, 30 };
+    if (DrawButton(closeBtn, "X"))
+    {
+        isOpen = false;
+    }
+
+    // Painel Esquerdo: Equipamentos Equipados
+    float leftX = invRect.x + 25.0f;
+    float topY = invRect.y + 65.0f;
+
+    DrawText("EQUIPADOS", leftX, topY, 16, (Color){245, 200, 80, 255});
+
+    // Slot Arma
+    Rectangle weaponSlot = { leftX, topY + 25.0f, 70.0f, 70.0f };
+    DrawPanel(weaponSlot, (Color){35, 25, 40, 240});
+    DrawBorder(weaponSlot, player.inventory.equippedWeapon.IsValid() ? (Color){245, 180, 50, 255} : (Color){100, 90, 80, 200}, 2.0f);
+    DrawText("Arma", weaponSlot.x + 18, weaponSlot.y + 75, 12, (Color){180, 170, 160, 255});
+
+    if (player.inventory.equippedWeapon.IsValid())
+    {
+        Texture2D icon = GetIcon(player.inventory.equippedWeapon.iconFileName);
+        if (icon.id > 0)
+        {
+            DrawTexturePro(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height}, (Rectangle){weaponSlot.x + 5, weaponSlot.y + 5, 60, 60}, (Vector2){0,0}, 0.0f, WHITE);
+        }
+        else
+        {
+            DrawText(player.inventory.equippedWeapon.name.c_str(), weaponSlot.x + 5, weaponSlot.y + 25, 10, GOLD);
+        }
+
+        if (CheckCollisionPointRec(GetMousePosition(), weaponSlot) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            player.inventory.UnequipWeapon();
+        }
+    }
+
+    // Slot Armadura
+    Rectangle armorSlot = { leftX + 90.0f, topY + 25.0f, 70.0f, 70.0f };
+    DrawPanel(armorSlot, (Color){35, 25, 40, 240});
+    DrawBorder(armorSlot, player.inventory.equippedArmor.IsValid() ? (Color){245, 180, 50, 255} : (Color){100, 90, 80, 200}, 2.0f);
+    DrawText("Armadura", armorSlot.x + 10, armorSlot.y + 75, 12, (Color){180, 170, 160, 255});
+
+    if (player.inventory.equippedArmor.IsValid())
+    {
+        Texture2D icon = GetIcon(player.inventory.equippedArmor.iconFileName);
+        if (icon.id > 0)
+        {
+            DrawTexturePro(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height}, (Rectangle){armorSlot.x + 5, armorSlot.y + 5, 60, 60}, (Vector2){0,0}, 0.0f, WHITE);
+        }
+        else
+        {
+            DrawText(player.inventory.equippedArmor.name.c_str(), armorSlot.x + 5, armorSlot.y + 25, 10, SKYBLUE);
+        }
+
+        if (CheckCollisionPointRec(GetMousePosition(), armorSlot) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            player.inventory.UnequipArmor();
+        }
+    }
+
+    // Status Totais
+    DrawText(TextFormat("Ataque Total: %.0f", player.GetTotalAttack()), leftX, topY + 125.0f, 15, (Color){230, 210, 160, 255});
+    DrawText(TextFormat("Defesa Total: %.0f", player.GetTotalDefense()), leftX, topY + 145.0f, 15, (Color){230, 210, 160, 255});
+
+    DrawDivider(leftX, topY + 175.0f, 180.0f);
+
+    // Painel Direito: Grade de Inventário (4x4 = 16 Slots)
+    float gridX = invRect.x + 230.0f;
+    float gridY = invRect.y + 65.0f;
+    float slotSize = 64.0f;
+    float gap = 12.0f;
+
+    DrawText("MOCHILA (16 SLOTS)", gridX, gridY, 16, (Color){245, 200, 80, 255});
+
+    Vector2 mousePos = GetMousePosition();
+
+    for (int i = 0; i < Inventory::CAPACITY; i++)
+    {
+        int col = i % 4;
+        int row = i / 4;
+        Rectangle slotRec = { gridX + col * (slotSize + gap), gridY + 25.0f + row * (slotSize + gap), slotSize, slotSize };
+
+        bool hovered = CheckCollisionPointRec(mousePos, slotRec);
+        bool isSelected = (selectedSlot == i);
+
+        Color slotBg = isSelected ? (Color){80, 60, 30, 250} : (hovered ? (Color){45, 35, 55, 240} : (Color){28, 22, 34, 230});
+        Color slotBorderColor = isSelected ? (Color){255, 220, 90, 255} : (hovered ? (Color){220, 170, 70, 255} : (Color){100, 85, 70, 200});
+
+        DrawPanel(slotRec, slotBg);
+        DrawBorder(slotRec, slotBorderColor, isSelected ? 2.5f : 1.5f);
+
+        if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            selectedSlot = i;
+        }
+
+        const Item& slotItem = player.inventory.slots[i];
+        if (slotItem.IsValid())
+        {
+            Texture2D icon = GetIcon(slotItem.iconFileName);
+            if (icon.id > 0)
+            {
+                DrawTexturePro(icon, (Rectangle){0, 0, (float)icon.width, (float)icon.height}, (Rectangle){slotRec.x + 4, slotRec.y + 4, 56, 56}, (Vector2){0,0}, 0.0f, WHITE);
+            }
+            else
+            {
+                DrawText(slotItem.name.c_str(), slotRec.x + 4, slotRec.y + 22, 10, WHITE);
+            }
+        }
+    }
+
+    // Painel Inferior de Detalhes e Ações do Item Selecionado
+    float detailsY = invRect.y + 365.0f;
+    Rectangle detailsBox = { invRect.x + 20.0f, detailsY, invRect.width - 40.0f, 95.0f };
+    DrawPanel(detailsBox, (Color){18, 14, 24, 240});
+
+    if (selectedSlot >= 0 && selectedSlot < Inventory::CAPACITY && player.inventory.slots[selectedSlot].IsValid())
+    {
+        Item& item = player.inventory.slots[selectedSlot];
+
+        DrawText(item.name.c_str(), detailsBox.x + 15, detailsBox.y + 12, 18, (Color){255, 220, 100, 255});
+        DrawText(item.description.c_str(), detailsBox.x + 15, detailsBox.y + 36, 14, (Color){210, 200, 190, 255});
+
+        // Botões de Ação
+        if (item.type == ItemType::Weapon || item.type == ItemType::Armor)
+        {
+            Rectangle equipBtn = { detailsBox.x + detailsBox.width - 240, detailsBox.y + 18, 105, 34 };
+            if (DrawButton(equipBtn, "Equipar"))
+            {
+                player.inventory.EquipItem(selectedSlot);
+            }
+        }
+        else if (item.type == ItemType::Potion)
+        {
+            Rectangle useBtn = { detailsBox.x + detailsBox.width - 240, detailsBox.y + 18, 105, 34 };
+            if (DrawButton(useBtn, "Usar"))
+            {
+                float heal = 0.0f;
+                if (player.inventory.UseItem(selectedSlot, heal))
+                {
+                    player.Heal(heal);
+                }
+            }
+        }
+
+        Rectangle dropBtn = { detailsBox.x + detailsBox.width - 120, detailsBox.y + 18, 105, 34 };
+        if (DrawButton(dropBtn, "Dropar"))
+        {
+            outDroppedSlot = selectedSlot;
+        }
+    }
+    else
+    {
+        DrawText("Selecione um item da mochila para ver detalhes e acoes.", detailsBox.x + 15, detailsBox.y + 35, 14, (Color){160, 150, 140, 220});
+    }
 }

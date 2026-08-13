@@ -8,6 +8,8 @@
 #include "SettingsMenu.h"
 #include "GameObjects/TerrainObject.h"
 #include "GameObjects/PlayerObject.h"
+#include "GameObjects/PickupObject.h"
+#include "Item.h"
 
 enum class GameState
 {
@@ -23,6 +25,8 @@ struct App
 
     GameState state = GameState::MainMenu;
     bool isPaused = false;
+    bool isInventoryOpen = false;
+    std::string activePromptText;
 
     UISystem ui;
     Settings settings;
