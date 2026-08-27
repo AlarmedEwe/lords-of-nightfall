@@ -163,15 +163,11 @@ void App::Init()
         scene.objects.push_back(enemy);
     }
 
-#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
-    rlImGui::Setup(true);
-    levelEditor.Init();
-    levelEditor.LoadLevel(scene, terrain, scene.physics, "Build/Development/Saved");
-#endif
-
     scene.Init();
 
 #if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+    levelEditor.Init();
+    levelEditor.LoadLevel(scene, terrain, scene.physics, "Game/Assets/Levels/Default.lvl");
     state = GameState::Gameplay;
     DisableCursor();
 #else

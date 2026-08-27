@@ -20,6 +20,7 @@ from cookers.character_cooker import cook_3d_models
 from cookers.monster_cooker import cook_monsters
 from cookers.item_cooker import cook_rpg_items
 from cookers.nature_cooker import cook_nature_assets
+from cookers.level_cooker import cook_levels
 
 
 def main():
@@ -44,9 +45,11 @@ def main():
     cook_monsters(source_dir, output_dir)
     cook_rpg_items(source_dir, output_dir)
     cook_nature_assets(source_dir, output_dir)
+    lvl_proc, lvl_skip = cook_levels(source_dir, output_dir)
 
     print(f"[AssetCooker] Shaders: {sh_proc} processados, {sh_skip} up-to-date")
     print(f"[AssetCooker] UI Assets: {ui_proc} processados, {ui_skip} up-to-date")
+    print(f"[AssetCooker] Levels (.lvl): {lvl_proc} processados, {lvl_skip} up-to-date")
     return 0
 
 

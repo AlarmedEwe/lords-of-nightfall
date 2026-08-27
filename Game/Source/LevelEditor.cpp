@@ -1,4 +1,5 @@
 #include "LevelEditor.h"
+#include "TerrainAligner.h"
 #include "rlImGui.h"
 #include "imgui.h"
 #include "raymath.h"
@@ -220,6 +221,7 @@ void LevelEditor::Update(Scene& scene, TerrainObject& terrain, Physics& physics,
             {
                 float deltaH = isCtrlDown ? -brushStrength * deltaTime : brushStrength * deltaTime;
                 terrain.ModifyHeightAt(physics, hitPoint.x, hitPoint.z, deltaH, brushRadius);
+                TerrainAligner::AlignAllInRadius(scene, terrain, physics, hitPoint.x, hitPoint.z, brushRadius);
             }
         }
         else if (currentTool == EditorTool::Props)
@@ -605,15 +607,15 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
     ui.DrawDivider(panelX + 16.0f, footerY, panelW - 32.0f);
 
     Rectangle saveBtn = { panelX + 16.0f, footerY + 12.0f, panelW - 32.0f, 36.0f };
-    if (ui.DrawButton(saveBtn, "SALVAR LEVEL"))
+    if (ui.DrawButton(saveBtn, "SALVAR LEVEL (.lvl)"))
     {
-        SaveLevel(scene, terrain, "Build/Development/Saved");
+        SaveLevel(scene, terrain, "Game/Assets/Levels/Default.lvl");
     }
 
     Rectangle loadBtn = { panelX + 16.0f, footerY + 54.0f, panelW - 32.0f, 32.0f };
-    if (ui.DrawButton(loadBtn, "RECARREGAR SALVO"))
+    if (ui.DrawButton(loadBtn, "RECARREGAR SALVO (.lvl)"))
     {
-        LoadLevel(scene, terrain, physics, "Build/Development/Saved");
+        LoadLevel(scene, terrain, physics, "Game/Assets/Levels/Default.lvl");
     }
 }
 
@@ -621,11 +623,13 @@ void LevelEditor::Draw3DGizmos(const Scene& scene, const TerrainObject& terrain)
 {
     if (!isOpen) return;
 
+    Vector2 mousePos = GetMousePosition();
+    bool isOverSidebar = (mousePos.x <= 370.0f);
+
     // Renderiza Brush de Terraformagem ou Preview de Spawn
-    ImGuiIO& io = ImGui::GetIO();
-    if (!io.WantCaptureMouse && !IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+    if (!isOverSidebar && !IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
     {
-        Ray mouseRay = GetScreenToWorldRay(GetMousePosition(), editorCamera);
+        Ray mouseRay = GetScreenToWorldRay(mousePos, editorCamera);
         Vector3 hitPoint = GetGroundRaycastHit(mouseRay, (TerrainObject&)terrain);
 
         if (currentTool == EditorTool::Terraform)
@@ -663,14 +667,34 @@ void LevelEditor::ResetEnemies(Scene& scene)
 
 bool LevelEditor::SaveLevel(const Scene& scene, const TerrainObject& terrain, const std::string& savedDir)
 {
+    // Garante que as pastas existam
+    mkdir("Game", 0755);
+    mkdir("Game/Assets", 0755);
+    mkdir("Game/Assets/Levels", 0755);
+    mkdir("Assets", 0755);
+    mkdir("Assets/Levels", 0755);
     mkdir("Build", 0755);
     mkdir("Build/Development", 0755);
-    mkdir(savedDir.c_str(), 0755);
+    mkdir("Build/Development/Assets", 0755);
+    mkdir("Build/Development/Assets/Levels", 0755);
+    mkdir("Saved", 0755);
 
-    std::string filePath = savedDir + "/level_data.json";
-    std::ofstream f(filePath);
-    if (!f.is_open()) return false;
+    std::vector<std::string> targetPaths = {
+        "Game/Assets/Levels/Default.lvl",
+        "Assets/Levels/Default.lvl",
+        "Build/Development/Assets/Levels/Default.lvl",
+        "Saved/level_data.json"
+    };
 
+    if (!savedDir.empty())
+    {
+        if (savedDir.find(".lvl") != std::string::npos || savedDir.find(".json") != std::string::npos)
+            targetPaths.push_back(savedDir);
+        else
+            targetPaths.push_back(savedDir + "/Default.lvl");
+    }
+
+    std::stringstream f;
     f << "{\n";
     f << "  \"heights\": [";
     for (size_t i = 0; i < terrain.heightData.size(); i++)
@@ -709,17 +733,65 @@ bool LevelEditor::SaveLevel(const Scene& scene, const TerrainObject& terrain, co
               << ", \"x\": " << enemy->spawnPos.x << ", \"y\": " << enemy->spawnPos.y << ", \"z\": " << enemy->spawnPos.z << " }";
         }
     }
+    f << "\n  ],\n";
+
+    f << "  \"pickups\": [\n";
+    bool firstPickup = true;
+    for (auto* obj : scene.objects)
+    {
+        if (auto* pickup = dynamic_cast<PickupObject*>(obj))
+        {
+            if (!firstPickup) f << ",\n";
+            firstPickup = false;
+            f << "    { \"name\": \"" << pickup->item.name << "\", \"type\": " << (int)pickup->item.type
+              << ", \"x\": " << pickup->position.x << ", \"y\": " << pickup->position.y << ", \"z\": " << pickup->position.z << " }";
+        }
+    }
     f << "\n  ]\n";
     f << "}\n";
 
-    f.close();
-    TraceLog(LOG_INFO, "[LevelEditor] Level salvo com sucesso em %s", filePath.c_str());
-    return true;
+    std::string jsonStr = f.str();
+    bool anySaved = false;
+
+    for (const auto& path : targetPaths)
+    {
+        std::ofstream out(path);
+        if (out.is_open())
+        {
+            out << jsonStr;
+            out.close();
+            anySaved = true;
+            TraceLog(LOG_INFO, "[LevelEditor] Level salvo com sucesso em %s", path.c_str());
+        }
+    }
+
+    return anySaved;
 }
 
 bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physics, const std::string& savedDir)
 {
-    std::string filePath = savedDir + "/level_data.json";
+    const char* candidatePaths[] = {
+        savedDir.c_str(),
+        "Game/Assets/Levels/Default.lvl",
+        "Assets/Levels/Default.lvl",
+        "Build/Development/Assets/Levels/Default.lvl",
+        "Saved/Default.lvl",
+        "Saved/level_data.json",
+        "Build/Development/Saved/level_data.json"
+    };
+
+    std::string filePath = "";
+    for (const char* path : candidatePaths)
+    {
+        if (path && path[0] != '\0' && FileExists(path))
+        {
+            filePath = path;
+            break;
+        }
+    }
+
+    if (filePath.empty()) return false;
+
     std::ifstream f(filePath);
     if (!f.is_open()) return false;
 
@@ -762,11 +834,11 @@ bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physi
         }
     }
 
-    // 2. Remove objetos dinâmicos existentes (props e inimigos)
+    // 2. Remove objetos dinâmicos existentes (props, inimigos e coletáveis)
     for (auto it = scene.objects.begin(); it != scene.objects.end(); )
     {
         GameObject* obj = *it;
-        if (dynamic_cast<NatureObject*>(obj) || dynamic_cast<EnemyObject*>(obj))
+        if (dynamic_cast<NatureObject*>(obj) || dynamic_cast<EnemyObject*>(obj) || dynamic_cast<PickupObject*>(obj))
         {
             obj->Shutdown(physics);
             delete obj;
@@ -837,6 +909,44 @@ bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physi
             p = pEnd + 1;
         }
     }
+
+    // 5. Re-instancia Coletáveis
+    size_t pickupsPos = content.find("\"pickups\": [");
+    if (pickupsPos != std::string::npos)
+    {
+        size_t endPickups = content.find("]", pickupsPos);
+        std::string pickupsBlock = content.substr(pickupsPos, endPickups - pickupsPos);
+
+        size_t p = 0;
+        while ((p = pickupsBlock.find("{", p)) != std::string::npos)
+        {
+            size_t pEnd = pickupsBlock.find("}", p);
+            if (pEnd == std::string::npos) break;
+            std::string itemStr = pickupsBlock.substr(p, pEnd - p);
+
+            char nameBuf[64] = {0};
+            int typeVal = 0;
+            float x = 0, y = 0, z = 0;
+
+            if (sscanf(itemStr.c_str(), " { \"name\": \"%63[^\"]\", \"type\": %d, \"x\": %f, \"y\": %f, \"z\": %f", nameBuf, &typeVal, &x, &y, &z) >= 5)
+            {
+                Item item;
+                if (strstr(nameBuf, "Machado")) item = Items::CreateAxe();
+                else if (strstr(nameBuf, "Pocao") || strstr(nameBuf, "Poção")) item = Items::CreateHealthPotion();
+                else if (strstr(nameBuf, "Ranger")) item = Items::CreateRangerArmor();
+                else if (strstr(nameBuf, "Campones") || strstr(nameBuf, "Camponês")) item = Items::CreatePeasantOutfit();
+                else item = Items::CreateSword();
+
+                auto* pickup = new PickupObject(item, (Vector3){ x, y, z });
+                pickup->Init(physics);
+                scene.objects.push_back(pickup);
+            }
+            p = pEnd + 1;
+        }
+    }
+
+    TerrainAligner::AlignAll(scene, terrain, physics);
+    physics.system.OptimizeBroadPhase();
 
     TraceLog(LOG_INFO, "[LevelEditor] Level carregado com sucesso a partir de %s", filePath.c_str());
     return true;

@@ -151,15 +151,21 @@ lords-of-nightfall/
 - Importação do kit de natureza (`Stylized Nature Mega Kit`).
 - Spawning aleatório de vegetação no mapa; árvores possuem colisão física, demais props não possuem.
 
-### Milestone 08: Level Editor (In-Game via Dear ImGui)
+### Milestone 08: Level Editor
 - Exclusivo para builds `Debug` e `Development`.
-- Tecla de atalho para abrir/fechar; pausa a simulação do jogo e ativa a **Free Camera** (WASD + botão direito do mouse).
+- Tecla de atalho `F1` para abrir/fechar; pausa a simulação do jogo e ativa a **Free Camera** (WASD + botão direito do mouse).
+- **Sidebar Kenney Fantasy UI**: Interface nativa Raylib com fundo escuro, tabs douradas e scroll de listas.
 - **Ferramentas**:
   1. *Terraformagem*: Brush para alterar geometria/elevação do terreno (clique para subir, Ctrl para descer, scroll para tamanho do brush).
-  2. *Props*: Paleta com thumbnails renderizadas, preview sobre a superfície, clique para adicionar e Ctrl+clique para deletar.
-  3. *Inimigos*: Lista com thumbnails e níveis, preview de posicionamento de spawns e botão para resetar posições de teste.
+     - **Regra de SRP & Sincronização de Altura (`TerrainAligner`)**: Durante a deformação do relevo, a classe dedicada `TerrainAligner` (`Game/Source/TerrainAligner.h/.cpp`) recalcula imediatamente a posição vertical (`position.y`) e os corpos físicos Jolt (árvores, CharacterVirtual do jogador, alvos de patrulha dos monstros, coletáveis) de todas as entidades dentro do raio do brush para evitar que atravessem o chão ou fiquem flutuando.
+  2. *Props*: Paleta com listagem, preview sobre a superfície, clique para adicionar e Ctrl+clique para deletar.
+  3. *Inimigos*: Lista com monstros e níveis, preview de posicionamento de spawns e botão para resetar posições de teste.
   4. *Coletáveis*: Adição e remoção de itens coletáveis no cenário.
-- **Persistência**: Alterações serializadas e salvas automaticamente nos dados de assets/runtime do jogo.
+- **Persistência (.lvl)**: Alterações serializadas e salvas automaticamente em `Game/Assets/Levels/Default.lvl` (e no diretório de runtime da build), processadas pelo Asset Cooker.
+
+### Milestone 09: Minimap
+
+### Milestone 10: Quests e NPCs
 
 ---
 
