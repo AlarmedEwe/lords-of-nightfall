@@ -44,6 +44,7 @@ struct PlayerObject : public GameObject
     bool isAttacking = false;
     float attackTimer = 0.0f;
     float attackDuration = 0.5f;
+    bool hasDealtDamageThisAttack = false;
 
     // Inventário
     Inventory inventory;
@@ -73,6 +74,7 @@ struct PlayerObject : public GameObject
     void SetOutfit(const std::string& modelFile, const std::string& textureFile);
     float GetTotalAttack() const;
     float GetTotalDefense() const;
+    void PerformAttackSweep(std::vector<GameObject*>& objects);
 };
 
 #endif // PLAYER_OBJECT_H

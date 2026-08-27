@@ -11,6 +11,7 @@ struct Inventory
 
     Item equippedWeapon;
     Item equippedArmor;
+    int gold = 0;
 
     bool AddItem(const Item& item);
     bool RemoveItem(int index);

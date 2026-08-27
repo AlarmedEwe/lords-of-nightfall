@@ -43,7 +43,9 @@ void Skybox::Init()
     {
         lightDirLoc = GetShaderLocation(skyShader, "lightDir");
 
-        // Cria o cubo do skybox
+        skyShader.locs[SHADER_LOC_MATRIX_PROJECTION] = GetShaderLocation(skyShader, "matProjection");
+        skyShader.locs[SHADER_LOC_MATRIX_VIEW] = GetShaderLocation(skyShader, "matView");
+
         cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
         skyModel = LoadModelFromMesh(cubeMesh);
         skyModel.materials[0].shader = skyShader;
@@ -71,14 +73,16 @@ void Skybox::Draw(Camera camera, Vector3 lightDir)
 
     // Desabilita a gravação no buffer de profundidade e culling para desenhar o interior do cubo no infinito
     rlDisableDepthMask();
+    rlDisableDepthTest();
     rlDisableBackfaceCulling();
 
     BeginMode3D(camera);
-        // Desenha o cubo do skybox centralizado na câmera
-        DrawModel(skyModel, camera.position, 100.0f, WHITE);
+        // Desenha o cubo do skybox centralizado no infinito
+        DrawModel(skyModel, (Vector3){0.0f, 0.0f, 0.0f}, 100.0f, WHITE);
     EndMode3D();
 
     rlEnableBackfaceCulling();
+    rlEnableDepthTest();
     rlEnableDepthMask();
 }
 

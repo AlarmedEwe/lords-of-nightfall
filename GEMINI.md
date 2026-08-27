@@ -91,12 +91,18 @@ As ferramentas do motor (como o editor de level) salvarão modificações de cen
 
 ---
 # Assets 3D do jogo
-**MUITO IMPORTANTE:** Esses assets em formato FBX NÃO são para serem importados diretamente em FBX no jogo. Ao invés disso, use o script `Tools/AssetCooker.py` para extrair esses arquivos e escrever um arquivo final em binário junto ao `.exe`, num formato que o jogo consiga ler e importar de forma rápida e fácil. Use a SIMP para importar os FBX. Crie um `.venv` do Python e um `requirements.txt` para instalar essas coisas.
+**MUITO IMPORTANTE:** Esses assets em formato FBX NÃO são para serem importados diretamente em FBX no jogo. Ao invés disso, use o script `Tools/AssetCooker.py` para extrair esses arquivos e escrever um arquivo final em binário junto ao `.exe`, num formato que o jogo consiga ler e importar de forma rápida e fácil. Use assimp para importar os FBX. Crie um `.venv` do Python e um `requirements.txt` para instalar essas coisas.
 
 ## Assets dos personagens
 - Nas pastas `Game/Assets/Universal Animation Library/` e `Game/Assets/Universal Animation Library 2/`, você vai encontrar FBXs contendo inúmeras animações: `UAL1_standard.fbx` e `UAL2_standard.fbx`.
 - Em `Game/Assets/Universal Base Characters/`, você vai encontrar uma personagem base já rigado (`superhero_male_fullbody.fbx`) para ser o personagem principal do jogo. Essa skin é o personagem "só de cueca", sem roupas.
 - Em `Game/Assets/Modular Character Outfits/`, você vai encontrar 4 modelos diferentes de outfits, sendo que vamos usar dois: `Male_Ranger.fbx` e `Male_Peasant.fbx`. Ambos já estão rigados e vamos usar as partes individuais aqui para fazer os equipamentos.
+
+### REGRA CRÍTICA DE ASSET COOKING DE ANIMAÇÕES (BLENDER 4.4+):
+- O script `Tools/AssetCooker.py` gera e executa um script headless no Blender para assar as animações FBX dos personagens (`Superhero_Male`, `Male_Peasant`, `Male_Ranger`).
+- **Retargeting de Armadura**: O modificador `Armature` das submeshes deve ser explicitamente redirecionado para o esqueleto animado importado (`anim_armature`).
+- **Action Slots no Blender 4.4+**: É **obrigatório** atribuir o `action_slot` (`active_armature.animation_data.action_slot = slots[0]`) ao carregar uma ação (`animation_data.action = act`), caso contrário a animação será ignorada e o modelo ficará estático em T-Pose.
+- **View Layer Update**: Deve-se chamar `bpy.context.view_layer.update()` antes de extrair a malha avaliada (`to_mesh()`) a cada quadro.
 
 ---
 
@@ -127,6 +133,17 @@ Adicionei vários itens em FBX em `Game/Assets/Ultimate RPG Items Pack`. Itens c
 E aí eu quero que você coloque no chão ali, espalhado para gente testar itens que, se eu chegar perto, vai aparecer na interface para eu apertar `E` e coletar. E se eu apertar E e coletar, ele coleta para o inventário. Então, eu preciso também ter um sistema de inventário que eu possa abrir e fechar na interface, e aí esse inventário vai ter os slots, e eu posso arrastar os slots de um lugar para o outro, dropar o item ou equipar o item, ou também utilizar o item no caso da poção. Eu também quero itens no chão com armadura para eu coletar, equipar e isso alterar o visual do personagem para os dois FBXs que eu tenho na pasta para as skins do personagem. Lembre de usar o sistema de asset cooking.
 
 ## Milestone 06: Inimigos (lógica + animações)
+Agora nós vamos implementar os inimigos. Eles precisam ser um game object específico. Não acho que vale a pena criar um game object só para todos os inimigos, porque você vai ver que são dezenas deles, mas um game object que a gente consiga configurar ali para ser, para selecionar inimigos diferentes.
+
+Isso porque dentro da pasta de assets, você vai encontrar uma pasta chamada `Ultimate Monsters`. E dentro dessa pasta, você vai ter três categorias de inimigos: flying, blob e big. Todos eles vão ter a mesma mecânica. Eles vão andar, só muda as animações e o modelo 3D e texturas. E obviamente, eu quero que você mude o nível deles: vida, ataque, etc. Cada uma dessas pastas contém vários FBXs, um para cada inimigo. E cada inimigo tem várias animações. Essas animações são: Death, Duck, HitReact, Idle, Jump, Jump_Idle, Jump_Land, No, Punch, Run, Walk, Wave, Weapon, Yes.
+
+A lógica do inimigo é a seguinte: eles são spawnados e eles vão armazenar a posição que eles são spawnados inicialmente e eles vão ter uma lógica padrão, um estado de patrulha, que eles vão ficar parados por alguns segundos, depois vão andar até uma direção específica até eles chegarem naquela posição. Depois voltam a ficar parados por um segundo e repete. Essa direção deve estar sempre dentro do raio próximo do lugar de spawn deles e aí você pode definir um raio de patrulha para eles ficarem. Se o personagem chegar perto deles, eles imediatamente mudam para o estado de ir atrás do player e aí eles vão correr ao invés de andar e em direção ao player. Chegando perto do player, eles simplesmente ficam parados, atacam, depois ficam parados de novo, atacam e isso aleatoriamente. Eles ficam parados por algum tempo aleatório dependendo se e aí cada inimigo pode ter uma chance percentual de ser agressivo. E aí isso é aí é aleatório por inimigo, por instância de inimigo. E se ele for agressivo, ele basicamente vai ficar menos tempo parado e vai atacar mais frequentemente. Bem simples a lógica. Se o player morrer, eles voltam para o estado de patrulha. Outra coisa, se o player for cinco níveis ou mais acima dos inimigos, eles não vão atacar o player por padrão. Só atacam, só vão continuar no estado de patrulha, porque aí eles vão entender que o personagem é muito forte, mas obviamente se o personagem atacar eles primeiro, aí sim eles atacam.
+
+Você vai exibir o nome do inimigo, o nível e a barra de vida em cima da cabeça deles. Isso será exibido se uma de duas condições for verdadeira: primeiro, se o jogador estiver próximo do inimigo, porque aí o jogador consegue saber o nível e o nome de cada inimigo, ou se a vida do inimigo não estiver em 100%, ou seja, se o inimigo tomou algum dano. Aí sim você pode exibir sempre na interface a vida dele.
+
+Você vai implementar no sistema, claro, de ataque e de morte, tanto no player quanto no inimigo. Quando o inimigo morre, ele dropa dinheiro e experiência. Para testarmos, popule a cena de gameplay com centenas de inimigos aleatórios.
 
 ## Milestone XX (final): Polimentos e otimizações
 - Mude as cores do menu para deixar mais flat
+- A roupa do personagem equipado clipa com a malha do player.
+- O instanciamento das armas equipadas tá errado.

@@ -15,5 +15,5 @@ void main()
     vec4 clipPos = matProjection * viewNoTranslation * vec4(vertexPosition, 1.0);
     
     // Z = W para garantir que a profundidade seja 1.0 (máxima profundidade)
-    gl_Position = clipPos.xyww;
+    gl_Position = clipPos;
 }

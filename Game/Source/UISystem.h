@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <string>
 
+struct EnemyObject; // Forward declaration
+
 struct UISystem
 {
     Texture2D panelTexture = {};
@@ -40,6 +42,7 @@ struct UISystem
     // RPG HUD & Inventory System
     void DrawHUD(const PlayerObject& player, const char* promptText);
     void DrawInventory(PlayerObject& player, bool& isOpen, int& outDroppedSlot);
+    void DrawEnemyOverheadUI(const EnemyObject& enemy, Camera3D camera, Vector3 playerPos);
 };
 
 #endif // UI_SYSTEM_H

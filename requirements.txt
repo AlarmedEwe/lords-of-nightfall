@@ -1,3 +1,2 @@
-assimp-py>=1.1.0
-numpy>=1.21.0
-setuptools>=68.0.0
+assimp-py
+numpy

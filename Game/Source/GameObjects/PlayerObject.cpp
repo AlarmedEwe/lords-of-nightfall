@@ -1,4 +1,5 @@
 #include "PlayerObject.h"
+#include "EnemyObject.h"
 #include "../Item.h"
 #include "raymath.h"
 #include <cmath>
@@ -56,6 +57,18 @@ void PlayerObject::Init(Physics& physics)
 
 void PlayerObject::Update(Physics& physics, float deltaTime)
 {
+    // Respawn do jogador se a vida zerar
+    if (health <= 0.0f)
+    {
+        health = maxHealth;
+        position = { 0.0f, 5.0f, 0.0f };
+        if (character)
+        {
+            character->SetPosition(JPH::RVec3(0.0, 5.0, 0.0));
+            character->SetLinearVelocity(JPH::Vec3::sZero());
+        }
+    }
+
     // Ground check do Jolt CharacterVirtual
     JPH::CharacterVirtual::EGroundState groundState = character->GetGroundState();
     onGround = (groundState == JPH::CharacterVirtual::EGroundState::OnGround) || character->IsSupported();
@@ -65,6 +78,7 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     {
         isAttacking = true;
         attackTimer = 0.0f;
+        hasDealtDamageThisAttack = false;
     }
 
     if (isAttacking)
@@ -329,4 +343,45 @@ float PlayerObject::GetTotalAttack() const
 float PlayerObject::GetTotalDefense() const
 {
     return baseDefense + inventory.GetTotalDefenseBonus();
+}
+
+void PlayerObject::PerformAttackSweep(std::vector<GameObject*>& objects)
+{
+    if (!isAttacking || hasDealtDamageThisAttack) return;
+
+    // Desfere o golpe aos ~0.15s de animação do ataque
+    if (attackTimer >= 0.15f)
+    {
+        hasDealtDamageThisAttack = true;
+
+        Vector3 attackCenter = {
+            position.x + sinf(meshYaw * DEG2RAD) * 1.5f,
+            position.y + 0.8f,
+            position.z + cosf(meshYaw * DEG2RAD) * 1.5f
+        };
+
+        for (auto* obj : objects)
+        {
+            if (auto* enemy = dynamic_cast<EnemyObject*>(obj))
+            {
+                if (!enemy->isDead)
+                {
+                    float dist = Vector3Distance(attackCenter, enemy->position);
+                    if (dist <= 2.3f)
+                    {
+                        float dmg = std::max(1.0f, GetTotalAttack() - enemy->defense);
+                        bool wasAlive = !enemy->isDead;
+
+                        enemy->TakeDamage(dmg, level);
+
+                        if (wasAlive && enemy->isDead)
+                        {
+                            AddXp(enemy->xpReward);
+                            inventory.gold += (int)enemy->goldReward;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
