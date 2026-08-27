@@ -11,6 +11,10 @@
 #include "GameObjects/PickupObject.h"
 #include "Item.h"
 
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+#include "LevelEditor.h"
+#endif
+
 enum class GameState
 {
     MainMenu,
@@ -33,6 +37,10 @@ struct App
     SettingsMenu settingsMenu;
 
     MainMenuScene mainMenuScene;
+
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+    LevelEditor levelEditor;
+#endif
 
     // Gameplay scene
     Scene scene;

@@ -32,6 +32,10 @@ struct TerrainObject : public GameObject
     void GenerateMesh();
     // Retorna altura no ponto (x, z) do terreno
     float GetHeightAt(float x, float z);
+
+    // Modifica altura do terreno no raio de um brush (Terraformagem)
+    void ModifyHeightAt(Physics& physics, float worldX, float worldZ, float deltaHeight, float radius);
+    void RebuildPhysicsShape(Physics& physics);
 };
 
 #endif // TERRAIN_OBJECT_H

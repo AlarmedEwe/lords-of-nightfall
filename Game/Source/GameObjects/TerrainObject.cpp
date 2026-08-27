@@ -227,3 +227,93 @@ float TerrainObject::GetHeightAt(float x, float z)
 
     return h0 * (1.0f - fz) + h1 * fz;
 }
+
+void TerrainObject::ModifyHeightAt(Physics& physics, float worldX, float worldZ, float deltaHeight, float radius)
+{
+    if (heightData.size() < (size_t)(GRID_SIZE * GRID_SIZE)) return;
+
+    float offsetX = -(float)(GRID_SIZE - 1) * TERRAIN_SCALE * 0.5f;
+    float offsetZ = -(float)(GRID_SIZE - 1) * TERRAIN_SCALE * 0.5f;
+
+    bool modified = false;
+
+    for (int z = 0; z < GRID_SIZE; z++)
+    {
+        for (int x = 0; x < GRID_SIZE; x++)
+        {
+            float vx = (float)x * TERRAIN_SCALE + offsetX;
+            float vz = (float)z * TERRAIN_SCALE + offsetZ;
+
+            float dx = vx - worldX;
+            float dz = vz - worldZ;
+            float distSq = dx * dx + dz * dz;
+
+            if (distSq <= radius * radius)
+            {
+                float dist = sqrtf(distSq);
+                float falloff = cosf((dist / radius) * (3.14159265f * 0.5f));
+                if (falloff < 0.0f) falloff = 0.0f;
+
+                int idx = z * GRID_SIZE + x;
+                heightData[idx] += deltaHeight * falloff;
+                modified = true;
+
+                if (meshGenerated && mesh.vertices)
+                {
+                    mesh.vertices[idx * 3 + 1] = heightData[idx];
+                }
+            }
+        }
+    }
+
+    if (modified)
+    {
+        if (meshGenerated && mesh.vertices)
+        {
+            UpdateMeshBuffer(mesh, 0, mesh.vertices, GRID_SIZE * GRID_SIZE * 3 * sizeof(float), 0);
+        }
+
+        RebuildPhysicsShape(physics);
+    }
+}
+
+void TerrainObject::RebuildPhysicsShape(Physics& physics)
+{
+    JPH::BodyInterface& bodyInterface = physics.system.GetBodyInterface();
+
+    if (bodyId.IsInvalid() == false)
+    {
+        bodyInterface.RemoveBody(bodyId);
+        bodyInterface.DestroyBody(bodyId);
+        bodyId = JPH::BodyID();
+    }
+
+    float offsetX = -(float)(GRID_SIZE - 1) * TERRAIN_SCALE * 0.5f;
+    float offsetZ = -(float)(GRID_SIZE - 1) * TERRAIN_SCALE * 0.5f;
+
+    JPH::HeightFieldShapeSettings settings(
+        heightData.data(),
+        JPH::Vec3(offsetX, 0.0f, offsetZ),
+        JPH::Vec3(TERRAIN_SCALE, 1.0f, TERRAIN_SCALE),
+        GRID_SIZE
+    );
+
+    JPH::ShapeSettings::ShapeResult shapeResult = settings.Create();
+    if (shapeResult.IsValid())
+    {
+        JPH::BodyCreationSettings bodySettings(
+            shapeResult.Get(),
+            JPH::RVec3::sZero(),
+            JPH::Quat::sIdentity(),
+            JPH::EMotionType::Static,
+            Layers::NON_MOVING
+        );
+
+        JPH::Body* body = bodyInterface.CreateBody(bodySettings);
+        if (body)
+        {
+            bodyId = body->GetID();
+            bodyInterface.AddBody(bodyId, JPH::EActivation::DontActivate);
+        }
+    }
+}

@@ -11,6 +11,8 @@
 #include <sys/types.h>
 
 #if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+#include "rlImGui.h"
+
 static void CaptureScreenshotToDiskAndClipboard()
 {
     const char* homeDir = getenv("HOME");
@@ -161,6 +163,12 @@ void App::Init()
         scene.objects.push_back(enemy);
     }
 
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+    rlImGui::Setup(true);
+    levelEditor.Init();
+    levelEditor.LoadLevel(scene, terrain, scene.physics, "Build/Development/Saved");
+#endif
+
     scene.Init();
 
 #if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
@@ -231,6 +239,57 @@ void App::Run()
         }
         else if (state == GameState::Gameplay)
         {
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+            if (IsKeyPressed(KEY_F1))
+            {
+                levelEditor.isOpen = !levelEditor.isOpen;
+                if (levelEditor.isOpen)
+                {
+                    levelEditor.editorCamera.position = scene.camera.position;
+                    levelEditor.editorCamera.target = scene.camera.target;
+                    levelEditor.editorCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+                    levelEditor.editorCamera.fovy = 60.0f;
+
+                    Vector3 dir = Vector3Normalize(Vector3Subtract(scene.camera.target, scene.camera.position));
+                    if (Vector3Length(dir) > 0.001f)
+                    {
+                        levelEditor.cameraPitch = std::clamp(asin(dir.y) * RAD2DEG, -89.0f, 89.0f);
+                        levelEditor.cameraYaw = atan2(dir.z, dir.x) * RAD2DEG;
+                    }
+
+                    EnableCursor();
+                }
+                else
+                {
+                    DisableCursor();
+                }
+            }
+
+            if (levelEditor.isOpen)
+            {
+                levelEditor.Update(scene, terrain, scene.physics, dt);
+
+                Camera3D origCam = scene.camera;
+                scene.camera = levelEditor.editorCamera;
+
+                BeginDrawing();
+                ClearBackground((Color){20, 20, 30, 255});
+
+                scene.Draw();
+
+                BeginMode3D(levelEditor.editorCamera);
+                levelEditor.Draw3DGizmos(scene, terrain);
+                EndMode3D();
+
+                levelEditor.DrawUI(ui, scene, terrain, scene.physics);
+
+                EndDrawing();
+
+                scene.camera = origCam;
+                continue;
+            }
+#endif
+
             // Toggle Inventário (I ou TAB)
             if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB))
             {
@@ -425,6 +484,9 @@ void App::Run()
 
 void App::Shutdown()
 {
+#if defined(LON_DEVELOPMENT) || defined(LON_DEBUG)
+    rlImGui::Shutdown();
+#endif
     mainMenuScene.Shutdown();
     scene.Shutdown();
     ui.Shutdown();

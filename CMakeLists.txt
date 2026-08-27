@@ -67,17 +67,24 @@ set(JPH_USE_MTL OFF CACHE BOOL "" FORCE)
 add_subdirectory(Game/ThirdParty/JoltPhysics/Build)
 
 # ==============================================================================
-# ThirdParty: Dear ImGui (compilado como library estática)
+# ==============================================================================
+# ThirdParty: Dear ImGui & rlImGui (compilado como library estática)
 # ==============================================================================
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/Game/ThirdParty/imgui)
+set(RLIMGUI_DIR ${CMAKE_SOURCE_DIR}/Game/ThirdParty/rlImGui)
 add_library(imgui STATIC
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
     ${IMGUI_DIR}/imgui_tables.cpp
     ${IMGUI_DIR}/imgui_widgets.cpp
+    ${RLIMGUI_DIR}/rlImGui.cpp
 )
-target_include_directories(imgui PUBLIC ${IMGUI_DIR})
+target_include_directories(imgui PUBLIC 
+    ${IMGUI_DIR}
+    ${RLIMGUI_DIR}
+    ${CMAKE_SOURCE_DIR}/Game/ThirdParty/raylib/src
+)
 
 # ==============================================================================
 # Game Executable
@@ -89,6 +96,8 @@ add_executable(${PROJECT_NAME} ${GAME_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE
     Game/Source
     Game/ThirdParty/JoltPhysics
+    Game/ThirdParty/imgui
+    Game/ThirdParty/rlImGui
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
