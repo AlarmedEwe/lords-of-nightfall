@@ -4,6 +4,7 @@
 #include "../GameObject.h"
 #include "../LONModel.h"
 #include "../Inventory.h"
+#include "../Components/CharacterStats.h"
 #include <string>
 
 enum class PlayerAnimState
@@ -30,15 +31,15 @@ struct PlayerObject : public GameObject
     float cameraYaw = 0.0f;
     float meshYaw = 180.0f;
 
-    // Atributos RPG do jogador
-    float health = 100.0f;
-    float maxHealth = 100.0f;
-    float xp = 25.0f;
-    float maxXp = 100.0f;
-    int level = 1;
-
-    float baseAttack = 15.0f;
-    float baseDefense = 5.0f;
+    // Atributos RPG do jogador (encapsulados via CharacterStats)
+    CharacterStats stats;
+    float& health = stats.health;
+    float& maxHealth = stats.maxHealth;
+    float& xp = stats.xp;
+    float& maxXp = stats.maxXp;
+    int& level = stats.level;
+    float& baseAttack = stats.baseAttack;
+    float& baseDefense = stats.baseDefense;
 
     // Estado de Ataque
     bool isAttacking = false;
@@ -63,6 +64,13 @@ struct PlayerObject : public GameObject
 
     PlayerAnimState animState = PlayerAnimState::Idle;
     float animTime = 0.0f;
+
+    PlayerObject()
+    {
+        stats.baseAttack = 15.0f;
+        stats.baseDefense = 5.0f;
+        stats.xp = 25.0f;
+    }
 
     void Init(Physics& physics) override;
     void Update(Physics& physics, float deltaTime) override;

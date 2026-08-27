@@ -3,6 +3,7 @@
 
 #include "../GameObject.h"
 #include "../LONModel.h"
+#include "../Components/CharacterStats.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <string>
@@ -25,11 +26,13 @@ struct EnemyObject : public GameObject
     std::string category = "Big"; // Big, Blob, Flying
     std::string modelFile = "";
 
-    int level = 1;
-    float health = 100.0f;
-    float maxHealth = 100.0f;
-    float attackPower = 10.0f;
-    float defense = 2.0f;
+    // Atributos RPG do Inimigo (CharacterStats)
+    CharacterStats stats;
+    int& level = stats.level;
+    float& health = stats.health;
+    float& maxHealth = stats.maxHealth;
+    float& attackPower = stats.baseAttack;
+    float& defense = stats.baseDefense;
 
     float xpReward = 30.0f;
     float goldReward = 15.0f;

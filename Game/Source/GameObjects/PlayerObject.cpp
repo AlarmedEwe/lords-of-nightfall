@@ -1,32 +1,11 @@
 #include "PlayerObject.h"
 #include "EnemyObject.h"
+#include "PlayerEquipment.h"
 #include "../Item.h"
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
 #include <vector>
-
-static Model TryLoadModel(const char* relPath)
-{
-    if (!relPath || relPath[0] == '\0') return (Model){ 0 };
-
-    std::vector<std::string> candidatePaths = {
-        relPath,
-        std::string("Assets/") + relPath,
-        std::string("Build/Development/Assets/") + relPath
-    };
-
-    for (const std::string& path : candidatePaths)
-    {
-        if (FileExists(path.c_str()))
-        {
-            Model m = LoadModel(path.c_str());
-            if (m.meshCount > 0)
-                return m;
-        }
-    }
-    return (Model){ 0 };
-}
 
 void PlayerObject::Init(Physics& physics)
 {
@@ -58,9 +37,9 @@ void PlayerObject::Init(Physics& physics)
 void PlayerObject::Update(Physics& physics, float deltaTime)
 {
     // Respawn do jogador se a vida zerar
-    if (health <= 0.0f)
+    if (stats.IsDead())
     {
-        health = maxHealth;
+        stats.health = stats.maxHealth;
         position = { 0.0f, 5.0f, 0.0f };
         if (character)
         {
@@ -117,18 +96,13 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     {
         moveDir = moveDir.Normalized();
 
-        // Rotação alvo da malha baseada no vetor de movimento
         float targetYaw = atan2f(-moveDir.GetX(), -moveDir.GetZ()) * RAD2DEG + 180.0f;
-
-        // Interpolação suave de rotação (LerpAngle)
         float diff = fmodf(targetYaw - meshYaw + 540.0f, 360.0f) - 180.0f;
         meshYaw += diff * std::min(1.0f, deltaTime * 12.0f);
     }
 
     // Velocidade horizontal
     JPH::Vec3 desiredVelocity = moveDir * currentSpeed;
-
-    // Gravidade e pulo
     float verticalVelocity = character->GetLinearVelocity().GetY();
 
     if (onGround)
@@ -148,7 +122,6 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     JPH::Vec3 newVelocity(desiredVelocity.GetX(), verticalVelocity, desiredVelocity.GetZ());
     character->SetLinearVelocity(newVelocity);
 
-    // Configuração de colisão com o chão
     JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings;
     updateSettings.mStickToFloorStepDown = JPH::Vec3(0.0f, -0.5f, 0.0f);
     updateSettings.mWalkStairsStepUp = JPH::Vec3(0.0f, 0.4f, 0.0f);
@@ -175,30 +148,30 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     if (isAttacking)
     {
         animState = PlayerAnimState::Attack;
-        currentAnimIndex = 4; // Attack
+        currentAnimIndex = 4;
     }
     else if (!onGround)
     {
         animState = PlayerAnimState::Jump;
-        currentAnimIndex = 3; // Jump
+        currentAnimIndex = 3;
     }
     else if (isMoving)
     {
         if (isRunning)
         {
             animState = PlayerAnimState::Run;
-            currentAnimIndex = 2; // Run
+            currentAnimIndex = 2;
         }
         else
         {
             animState = PlayerAnimState::Walk;
-            currentAnimIndex = 1; // Walk
+            currentAnimIndex = 1;
         }
     }
     else
     {
         animState = PlayerAnimState::Idle;
-        currentAnimIndex = 0; // Idle (sempre Idle padrão em pé)
+        currentAnimIndex = 0;
     }
 
     characterModel.SetAnimation(currentAnimIndex);
@@ -210,86 +183,21 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
         equippedArmorModel.Update(deltaTime);
     }
 
-    // Verifica se a armadura equipada exige troca de outfit visual
-    std::string targetModel = inventory.equippedArmor.IsValid() ? inventory.equippedArmor.outfitModelFile : "";
-    std::string targetTex = inventory.equippedArmor.IsValid() ? inventory.equippedArmor.outfitTextureFile : "";
-
-    if (targetModel != currentOutfitModel)
-    {
-        SetOutfit(targetModel, targetTex);
-    }
-
-    // Atualiza o Modelo 3D da Arma Equipada
-    std::string targetWeaponPath = inventory.equippedWeapon.IsValid() ? inventory.equippedWeapon.modelFileName : "";
-    if (targetWeaponPath != loadedWeaponModelPath)
-    {
-        if (isWeaponModelLoaded)
-        {
-            UnloadModel(equippedWeaponModel);
-            isWeaponModelLoaded = false;
-        }
-
-        loadedWeaponModelPath = targetWeaponPath;
-        if (!loadedWeaponModelPath.empty())
-        {
-            equippedWeaponModel = TryLoadModel(loadedWeaponModelPath.c_str());
-            isWeaponModelLoaded = (equippedWeaponModel.meshCount > 0);
-        }
-    }
+    // Sincroniza equipamento visual (armadura e arma)
+    PlayerEquipment::Sync(*this);
 }
 
 void PlayerObject::Draw()
 {
     float feetOffset = 0.9f;
     Vector3 drawPos = { position.x, position.y - feetOffset, position.z };
-
-    if (characterModel.isLoaded)
-    {
-        characterModel.Draw(drawPos, meshYaw, 1.0f, WHITE);
-    }
-    else
-    {
-        DrawCube(position, 0.6f, 1.8f, 0.6f, BLUE);
-        DrawCubeWires(position, 0.61f, 1.81f, 0.61f, DARKBLUE);
-    }
-
-    if (isArmorModelLoaded)
-    {
-        equippedArmorModel.Draw(drawPos, meshYaw, 1.0f, WHITE);
-    }
-
-    // Renderiza a Arma Equipada anexada à mão do personagem (socket da mão direita)
-    if (isWeaponModelLoaded)
-    {
-        Matrix charMatrix = MatrixMultiply(MatrixRotateY(meshYaw * DEG2RAD), MatrixTranslate(drawPos.x, drawPos.y, drawPos.z));
-        Matrix handMatrix = characterModel.GetRightHandMatrix();
-
-        // Offset local do modelo da arma (escala e ajuste para a palma da mão)
-        Matrix weaponLocalOffset = MatrixScale(0.85f, 0.85f, 0.85f);
-        Matrix weaponHandMatrix = MatrixMultiply(weaponLocalOffset, handMatrix);
-        Matrix weaponWorld = MatrixMultiply(weaponHandMatrix, charMatrix);
-
-        equippedWeaponModel.transform = weaponWorld;
-        DrawModel(equippedWeaponModel, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
-        equippedWeaponModel.transform = MatrixIdentity();
-    }
+    PlayerEquipment::Draw(*this, drawPos);
 }
 
 void PlayerObject::Shutdown(Physics& physics)
 {
     (void)physics;
-    characterModel.Unload();
-    if (isArmorModelLoaded)
-    {
-        equippedArmorModel.Unload();
-        isArmorModelLoaded = false;
-    }
-
-    if (isWeaponModelLoaded)
-    {
-        UnloadModel(equippedWeaponModel);
-        isWeaponModelLoaded = false;
-    }
+    PlayerEquipment::Unload(*this);
 
     delete character;
     character = nullptr;
@@ -299,57 +207,33 @@ void PlayerObject::Shutdown(Physics& physics)
 
 void PlayerObject::Heal(float amount)
 {
-    health = std::min(maxHealth, health + amount);
+    stats.Heal(amount);
 }
 
 void PlayerObject::AddXp(float amount)
 {
-    xp += amount;
-    while (xp >= maxXp)
-    {
-        xp -= maxXp;
-        level++;
-        maxXp *= 1.25f;
-        maxHealth += 20.0f;
-        health = maxHealth;
-        baseAttack += 5.0f;
-        baseDefense += 2.0f;
-    }
+    stats.AddXp(amount);
 }
 
 void PlayerObject::SetOutfit(const std::string& modelFile, const std::string& textureFile)
 {
-    currentOutfitModel = modelFile;
-    currentOutfitTexture = textureFile;
-
-    if (isArmorModelLoaded)
-    {
-        equippedArmorModel.Unload();
-        isArmorModelLoaded = false;
-    }
-
-    if (!modelFile.empty() && modelFile != "Superhero_Male.lonmodel")
-    {
-        equippedArmorModel.Load(modelFile.c_str(), textureFile.c_str());
-        isArmorModelLoaded = equippedArmorModel.isLoaded;
-    }
+    PlayerEquipment::SetOutfit(*this, modelFile, textureFile);
 }
 
 float PlayerObject::GetTotalAttack() const
 {
-    return baseAttack + inventory.GetTotalAttackBonus();
+    return stats.baseAttack + inventory.GetTotalAttackBonus();
 }
 
 float PlayerObject::GetTotalDefense() const
 {
-    return baseDefense + inventory.GetTotalDefenseBonus();
+    return stats.baseDefense + inventory.GetTotalDefenseBonus();
 }
 
 void PlayerObject::PerformAttackSweep(std::vector<GameObject*>& objects)
 {
     if (!isAttacking || hasDealtDamageThisAttack) return;
 
-    // Desfere o golpe aos ~0.15s de animação do ataque
     if (attackTimer >= 0.15f)
     {
         hasDealtDamageThisAttack = true;
@@ -369,10 +253,10 @@ void PlayerObject::PerformAttackSweep(std::vector<GameObject*>& objects)
                     float dist = Vector3Distance(attackCenter, enemy->position);
                     if (dist <= 2.3f)
                     {
-                        float dmg = std::max(1.0f, GetTotalAttack() - enemy->defense);
+                        float dmg = std::max(1.0f, GetTotalAttack() - enemy->stats.baseDefense);
                         bool wasAlive = !enemy->isDead;
 
-                        enemy->TakeDamage(dmg, level);
+                        enemy->TakeDamage(dmg, stats.level);
 
                         if (wasAlive && enemy->isDead)
                         {
