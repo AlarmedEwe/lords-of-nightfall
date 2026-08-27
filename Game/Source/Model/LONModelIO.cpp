@@ -7,11 +7,25 @@
 #include <cstring>
 #include <vector>
 
+#include <unordered_map>
+#include <string>
+
 namespace LONModelIO
 {
 
+static std::unordered_map<std::string, Texture2D> s_TextureCache;
+
 static Texture2D TryLoadTexture(const char* relPath)
 {
+    if (!relPath || strlen(relPath) == 0) return (Texture2D){ 0 };
+
+    std::string key = relPath;
+    auto it = s_TextureCache.find(key);
+    if (it != s_TextureCache.end() && it->second.id > 0)
+    {
+        return it->second;
+    }
+
     const char* candidatePaths[] = {
         relPath,
         TextFormat("Assets/%s", relPath),
@@ -27,10 +41,25 @@ static Texture2D TryLoadTexture(const char* relPath)
         {
             Texture2D tex = LoadTexture(path);
             if (tex.id > 0)
+            {
+                s_TextureCache[key] = tex;
                 return tex;
+            }
         }
     }
     return (Texture2D){ 0 };
+}
+
+void ClearTextureCache()
+{
+    for (auto& pair : s_TextureCache)
+    {
+        if (pair.second.id > 0)
+        {
+            UnloadTexture(pair.second);
+        }
+    }
+    s_TextureCache.clear();
 }
 
 bool Load(LONModel& model, const char* lonmodelPath, const char* texturePath)
@@ -110,23 +139,56 @@ bool Load(LONModel& model, const char* lonmodelPath, const char* texturePath)
     model.rayModel = (Model){ 0 };
     model.rayModel.meshCount = numMeshes;
     model.rayModel.meshes = (Mesh*)RL_MALLOC(numMeshes * sizeof(Mesh));
-    model.rayModel.materialCount = 1;
-    model.rayModel.materials = (Material*)RL_MALLOC(sizeof(Material));
-    model.rayModel.materials[0] = LoadMaterialDefault();
-    model.rayModel.meshMaterial = (int*)RL_MALLOC(numMeshes * sizeof(int));
     model.rayModel.transform = MatrixIdentity();
 
-    model.texture = TryLoadTexture(texturePath);
-    if (model.texture.id > 0)
+    if (version >= 4)
     {
-        SetMaterialTexture(&model.rayModel.materials[0], MATERIAL_MAP_DIFFUSE, model.texture);
+        model.rayModel.materialCount = numMeshes;
+        model.rayModel.materials = (Material*)RL_MALLOC(numMeshes * sizeof(Material));
+        model.rayModel.meshMaterial = (int*)RL_MALLOC(numMeshes * sizeof(int));
+    }
+    else
+    {
+        model.rayModel.materialCount = 1;
+        model.rayModel.materials = (Material*)RL_MALLOC(sizeof(Material));
+        model.rayModel.materials[0] = LoadMaterialDefault();
+        model.rayModel.meshMaterial = (int*)RL_MALLOC(numMeshes * sizeof(int));
+
+        model.texture = TryLoadTexture(texturePath);
+        if (model.texture.id > 0)
+        {
+            SetMaterialTexture(&model.rayModel.materials[0], MATERIAL_MAP_DIFFUSE, model.texture);
+        }
     }
 
     model.submeshAnims.resize(numMeshes);
 
     for (uint32_t i = 0; i < numMeshes; i++)
     {
-        model.rayModel.meshMaterial[i] = 0;
+        if (version >= 4)
+        {
+            char submeshTexName[64] = {0};
+            if (fread(submeshTexName, 1, 64, f) != 64)
+            {
+                break;
+            }
+
+            model.rayModel.meshMaterial[i] = (int)i;
+            model.rayModel.materials[i] = LoadMaterialDefault();
+
+            if (strlen(submeshTexName) > 0)
+            {
+                Texture2D tex = TryLoadTexture(submeshTexName);
+                if (tex.id > 0)
+                {
+                    SetMaterialTexture(&model.rayModel.materials[i], MATERIAL_MAP_DIFFUSE, tex);
+                }
+            }
+        }
+        else
+        {
+            model.rayModel.meshMaterial[i] = 0;
+        }
 
         uint32_t numVerts = 0;
         uint32_t numIndices = 0;
@@ -198,11 +260,7 @@ void Unload(LONModel& model)
 {
     if (!model.isLoaded) return;
 
-    if (model.texture.id > 0)
-    {
-        UnloadTexture(model.texture);
-        model.texture = (Texture2D){ 0 };
-    }
+    model.texture = (Texture2D){ 0 };
 
     UnloadModel(model.rayModel);
     model.rayModel = (Model){ 0 };

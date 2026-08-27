@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include "GameObjects/PlayerObject.h"
 #include "GameObjects/TerrainObject.h"
+#include "GameObjects/NatureObject.h"
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
@@ -32,6 +33,13 @@ void Scene::Init()
             if (player->characterModel.isLoaded)
             {
                 lightingSystem.ApplyToModel(player->characterModel.rayModel);
+            }
+        }
+        else if (auto* nature = dynamic_cast<NatureObject*>(obj))
+        {
+            if (nature->natureModel && nature->natureModel->isLoaded)
+            {
+                lightingSystem.ApplyToModel(nature->natureModel->rayModel);
             }
         }
     }
@@ -86,6 +94,8 @@ void Scene::Draw()
     EndMode3D();
 }
 
+#include "Model/LONModelIO.h"
+
 void Scene::Shutdown()
 {
     damageFeedback.Clear();
@@ -94,6 +104,9 @@ void Scene::Shutdown()
 
     for (auto* obj : objects)
         obj->Shutdown(physics);
+
+    NatureObject::ClearCache();
+    LONModelIO::ClearTextureCache();
 
     physics.Shutdown();
 }

@@ -28,8 +28,20 @@ EXECUTABLE="$OUTPUT_DIR/LordsOfNightfall"
 case "$command" in
     build)
         echo "[lon] Configurando ($config)..."
-        cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$config" "$PROJECT_ROOT"
-        echo "[lon] Compilando..."
+        target_gen="Unix Makefiles"
+        if command -v ninja &> /dev/null; then
+            target_gen="Ninja"
+        fi
+
+        if [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
+            if ! grep -q "CMAKE_GENERATOR:INTERNAL=$target_gen" "$BUILD_DIR/CMakeCache.txt"; then
+                echo "[lon] Gerador alterado ($target_gen). Limpando cache antigo..."
+                rm -rf "$BUILD_DIR/CMakeCache.txt" "$BUILD_DIR/CMakeFiles"
+            fi
+        fi
+
+        cmake -G "$target_gen" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="$config" "$PROJECT_ROOT"
+        echo "[lon] Compilando com $target_gen..."
         cmake --build "$BUILD_DIR" -j"$(nproc)"
         echo "[lon] Build concluída: $EXECUTABLE"
         ;;

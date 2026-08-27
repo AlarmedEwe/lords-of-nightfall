@@ -1,5 +1,6 @@
 #include "App.h"
 #include "GameObjects/EnemyObject.h"
+#include "GameObjects/NatureObject.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <cmath>
@@ -57,6 +58,62 @@ void App::Init()
     scene.objects.push_back(new PickupObject(Items::CreateRangerArmor(), (Vector3){ -3.0f, 0.0f, -4.0f }));
     scene.objects.push_back(new PickupObject(Items::CreatePeasantOutfit(), (Vector3){ 5.0f, 0.0f, -3.0f }));
 
+    // Spawna elementos de natureza (Stylized Nature MegaKit) pelo mapa
+    const char* treeModels[] = {
+        "Nature_CommonTree_1.lonmodel", "Nature_CommonTree_2.lonmodel", "Nature_CommonTree_3.lonmodel",
+        "Nature_CommonTree_4.lonmodel", "Nature_CommonTree_5.lonmodel",
+        "Nature_DeadTree_1.lonmodel", "Nature_DeadTree_2.lonmodel", "Nature_DeadTree_3.lonmodel",
+        "Nature_DeadTree_4.lonmodel", "Nature_DeadTree_5.lonmodel",
+        "Nature_Pine_1.lonmodel", "Nature_Pine_2.lonmodel", "Nature_Pine_3.lonmodel",
+        "Nature_Pine_4.lonmodel", "Nature_Pine_5.lonmodel",
+        "Nature_TwistedTree_1.lonmodel", "Nature_TwistedTree_2.lonmodel", "Nature_TwistedTree_3.lonmodel",
+        "Nature_TwistedTree_4.lonmodel", "Nature_TwistedTree_5.lonmodel"
+    };
+    int numTreeModels = sizeof(treeModels) / sizeof(treeModels[0]);
+
+    const char* propModels[] = {
+        "Nature_Bush_Common.lonmodel", "Nature_Bush_Common_Flowers.lonmodel",
+        "Nature_Fern_1.lonmodel", "Nature_Plant_1.lonmodel", "Nature_Plant_7.lonmodel",
+        "Nature_Flower_3_Group.lonmodel", "Nature_Flower_4_Group.lonmodel",
+        "Nature_Grass_Common_Tall.lonmodel", "Nature_Grass_Wispy_Tall.lonmodel",
+        "Nature_Mushroom_Common.lonmodel", "Nature_Mushroom_Laetiporus.lonmodel",
+        "Nature_Rock_Medium_1.lonmodel", "Nature_Rock_Medium_2.lonmodel", "Nature_Rock_Medium_3.lonmodel",
+        "Nature_Pebble_Round_1.lonmodel", "Nature_Pebble_Square_1.lonmodel"
+    };
+    int numPropModels = sizeof(propModels) / sizeof(propModels[0]);
+
+    srand((unsigned int)time(NULL));
+
+    // Spawna Árvores (Com Colisão Física Jolt)
+    for (int i = 0; i < 160; i++)
+    {
+        const char* modelFile = treeModels[rand() % numTreeModels];
+        float angle = ((float)(rand() % 360)) * DEG2RAD;
+        float dist = 8.0f + (float)(rand() % 750) / 10.0f;
+        float spawnX = cosf(angle) * dist;
+        float spawnZ = sinf(angle) * dist;
+        float yaw = (float)(rand() % 360);
+        float scale = 0.8f + (float)(rand() % 60) / 100.0f;
+
+        auto* tree = new NatureObject(modelFile, (Vector3){ spawnX, 0.0f, spawnZ }, yaw, scale, true);
+        scene.objects.push_back(tree);
+    }
+
+    // Spawna Adereços de Natureza sem colisão (Arbustos, Plantas, Flores, Cogumelos, Pedras)
+    for (int i = 0; i < 200; i++)
+    {
+        const char* modelFile = propModels[rand() % numPropModels];
+        float angle = ((float)(rand() % 360)) * DEG2RAD;
+        float dist = 5.0f + (float)(rand() % 780) / 10.0f;
+        float spawnX = cosf(angle) * dist;
+        float spawnZ = sinf(angle) * dist;
+        float yaw = (float)(rand() % 360);
+        float scale = 0.7f + (float)(rand() % 80) / 100.0f;
+
+        auto* prop = new NatureObject(modelFile, (Vector3){ spawnX, 0.0f, spawnZ }, yaw, scale, false);
+        scene.objects.push_back(prop);
+    }
+
     // Spawna centenas de inimigos aleatórios pelo terreno
     struct MonsterArchetype {
         const char* name;
@@ -87,7 +144,6 @@ void App::Init()
     };
     int numArchetypes = sizeof(archetypes) / sizeof(archetypes[0]);
 
-    srand((unsigned int)time(NULL));
     for (int i = 0; i < 120; i++)
     {
         int archIdx = rand() % numArchetypes;

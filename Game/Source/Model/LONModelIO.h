@@ -9,6 +9,7 @@ namespace LONModelIO
 {
     bool Load(LONModel& model, const char* lonmodelPath, const char* texturePath);
     void Unload(LONModel& model);
+    void ClearTextureCache();
 }
 
 #endif // LON_MODEL_IO_H

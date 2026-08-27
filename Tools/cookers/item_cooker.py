@@ -40,6 +40,9 @@ def cook_rpg_items(source_dir, output_dir):
         'LightWood': [0.55, 0.35, 0.18]
     }
 
+    cooked_count = 0
+    skipped_count = 0
+
     for item_fbx in item_fbxs:
         fbx_path = os.path.join(items_src_fbx, item_fbx)
         if not os.path.exists(fbx_path):
@@ -50,6 +53,12 @@ def cook_rpg_items(source_dir, output_dir):
         mtl_name = base_name + ".mtl"
         out_obj = os.path.join(models_out_dir, obj_name)
         out_mtl = os.path.join(models_out_dir, mtl_name)
+
+        if os.path.exists(out_obj) and os.path.exists(out_mtl):
+            mtime_fbx = os.path.getmtime(fbx_path)
+            if os.path.getmtime(out_obj) >= mtime_fbx and os.path.getmtime(out_mtl) >= mtime_fbx:
+                skipped_count += 1
+                continue
 
         scene = assimp_py.import_file(fbx_path, post_proc)
 

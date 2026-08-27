@@ -134,7 +134,8 @@ def cook_character_textures(source_dir, output_dir):
                     if not os.path.exists(dst) or os.path.getmtime(src) > os.path.getmtime(dst):
                         shutil.copy2(src, dst)
 
-    # 3. Atlas de cores para os monstros (sempre regera para garantir paleta atualizada)
+    # 3. Atlas de cores para os monstros (gera apenas se não existir)
     atlas_path = os.path.join(tex_out_dir, "Atlas_Monsters.png")
-    create_monster_atlas(atlas_path)
+    if not os.path.exists(atlas_path):
+        create_monster_atlas(atlas_path)
 
