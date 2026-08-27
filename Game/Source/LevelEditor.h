@@ -20,6 +20,12 @@ enum class EditorTool
     Pickups
 };
 
+enum class TerraformMode
+{
+    Elevation,
+    TexturePaint
+};
+
 struct LevelEditor
 {
     bool isOpen = false;
@@ -32,9 +38,12 @@ struct LevelEditor
 
     EditorTool currentTool = EditorTool::Terraform;
 
-    // Tool 1: Terraform
+    // Tool 1: Terraform & Texture Painting
+    TerraformMode terraformMode = TerraformMode::Elevation;
     float brushRadius = 6.0f;
     float brushStrength = 5.0f;
+    int selectedTextureIdx = 0; // 0=Grass, 1=Dirt, 2=Sand, 3=Pavement
+    float paintStrength = 2.0f;
 
     // Tool 2: Props
     int selectedPropIdx = 0;
@@ -61,4 +70,3 @@ struct LevelEditor
 };
 
 #endif // LEVEL_EDITOR_H
-

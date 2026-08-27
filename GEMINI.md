@@ -156,12 +156,15 @@ lords-of-nightfall/
 - Tecla de atalho `F1` para abrir/fechar; pausa a simulação do jogo e ativa a **Free Camera** (WASD + botão direito do mouse).
 - **Sidebar Kenney Fantasy UI**: Interface nativa Raylib com fundo escuro, tabs douradas e scroll de listas.
 - **Ferramentas**:
-  1. *Terraformagem*: Brush para alterar geometria/elevação do terreno (clique para subir, Ctrl para descer, scroll para tamanho do brush).
+  1. *Terraformagem & Pintura*: 
+     - **Elevação**: Brush para alterar geometria/elevação do relevo (clique para subir, Ctrl para descer, scroll para raio).
+     - **Pintura de Textura (Stencil / Splatmap)**: Permite pintar livremente 4 texturas (`Grama`, `Terra`, `Areia`, `Pavimento`) usando um mapa de stencil RGBA com blend suave e shader customizado.
+     - **Escala de UV**: Sliders dedicados para ajustar o tiling e mapeamento UV individual de cada textura (`uvScaleGrass`, `uvScaleDirt`, `uvScaleSand`, `uvScalePavement`).
      - **Regra de SRP & Sincronização de Altura (`TerrainAligner`)**: Durante a deformação do relevo, a classe dedicada `TerrainAligner` (`Game/Source/TerrainAligner.h/.cpp`) recalcula imediatamente a posição vertical (`position.y`) e os corpos físicos Jolt (árvores, CharacterVirtual do jogador, alvos de patrulha dos monstros, coletáveis) de todas as entidades dentro do raio do brush para evitar que atravessem o chão ou fiquem flutuando.
   2. *Props*: Paleta com listagem, preview sobre a superfície, clique para adicionar e Ctrl+clique para deletar.
   3. *Inimigos*: Lista com monstros e níveis, preview de posicionamento de spawns e botão para resetar posições de teste.
   4. *Coletáveis*: Adição e remoção de itens coletáveis no cenário.
-- **Persistência (.lvl)**: Alterações serializadas e salvas automaticamente em `Game/Assets/Levels/Default.lvl` (e no diretório de runtime da build), processadas pelo Asset Cooker.
+- **Persistência (.lvl)**: Alterações de relevo, stencil/splatmap em Base64, escalas de UV e entidades serializadas e salvas automaticamente em `Game/Assets/Levels/Default.lvl` (e no diretório de runtime da build), processadas pelo Asset Cooker.
 
 ### Milestone 09: Minimap
 

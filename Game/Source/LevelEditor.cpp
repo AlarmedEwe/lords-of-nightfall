@@ -8,7 +8,50 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cstring>
 #include <sys/stat.h>
+
+static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static std::string Base64Encode(const uint8_t* data, size_t len)
+{
+    std::string out;
+    out.reserve(((len + 2) / 3) * 4);
+    for (size_t i = 0; i < len; i += 3)
+    {
+        uint32_t b = (data[i] << 16);
+        if (i + 1 < len) b |= (data[i + 1] << 8);
+        if (i + 2 < len) b |= data[i + 2];
+
+        out.push_back(b64_table[(b >> 18) & 0x3F]);
+        out.push_back(b64_table[(b >> 12) & 0x3F]);
+        out.push_back((i + 1 < len) ? b64_table[(b >> 6) & 0x3F] : '=');
+        out.push_back((i + 2 < len) ? b64_table[b & 0x3F] : '=');
+    }
+    return out;
+}
+
+static std::vector<uint8_t> Base64Decode(const std::string& str)
+{
+    std::vector<uint8_t> out;
+    out.reserve((str.length() / 4) * 3);
+    uint32_t val = 0;
+    int valb = -8;
+    for (char c : str)
+    {
+        if (c == '=' || c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
+        const char* p = strchr(b64_table, c);
+        if (!p) continue;
+        val = (val << 6) | (p - b64_table);
+        valb += 6;
+        if (valb >= 0)
+        {
+            out.push_back((uint8_t)((val >> valb) & 0xFF));
+            valb -= 8;
+        }
+    }
+    return out;
+}
 
 struct PropInfo {
     const char* displayName;
@@ -96,7 +139,6 @@ void LevelEditor::Init()
 
 static Vector3 GetGroundRaycastHit(Ray ray, TerrainObject& terrain)
 {
-    // Intersecção simples com o plano Y=GetHeightAt
     Vector3 hitPos = (Vector3){ 0.0f, 0.0f, 0.0f };
     float step = 0.5f;
     float maxDist = 300.0f;
@@ -118,7 +160,7 @@ void LevelEditor::Update(Scene& scene, TerrainObject& terrain, Physics& physics,
 {
     if (!isOpen) return;
 
-    // 1. Mouse Look (Girar olhar da câmera ao segurar Botão Direito do Mouse)
+    // 1. Mouse Look
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
     {
         if (!isFreeCamActive)
@@ -141,7 +183,7 @@ void LevelEditor::Update(Scene& scene, TerrainObject& terrain, Physics& physics,
         }
     }
 
-    // 2. Movimentação WASD Incondicional da Câmera no Level Editor
+    // 2. Movimentação WASD
     Vector2 mousePos = GetMousePosition();
     float sidebarWidth = 350.0f + 16.0f;
     bool isMouseOverSidebar = (mousePos.x >= 0.0f && mousePos.x <= sidebarWidth && mousePos.y >= 0.0f && mousePos.y <= (float)GetScreenHeight());
@@ -164,7 +206,6 @@ void LevelEditor::Update(Scene& scene, TerrainObject& terrain, Physics& physics,
     if (Vector3Length(forwardXZ) > 0.001f) forwardXZ = Vector3Normalize(forwardXZ);
     else forwardXZ = forward;
 
-    // Rodinha do mouse ajusta a velocidade de voo, o raio do brush ou a rolagem de listas
     float wheel = GetMouseWheelMove();
     if (wheel != 0.0f)
     {
@@ -217,11 +258,21 @@ void LevelEditor::Update(Scene& scene, TerrainObject& terrain, Physics& physics,
 
         if (currentTool == EditorTool::Terraform)
         {
-            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+            if (terraformMode == TerraformMode::Elevation)
             {
-                float deltaH = isCtrlDown ? -brushStrength * deltaTime : brushStrength * deltaTime;
-                terrain.ModifyHeightAt(physics, hitPoint.x, hitPoint.z, deltaH, brushRadius);
-                TerrainAligner::AlignAllInRadius(scene, terrain, physics, hitPoint.x, hitPoint.z, brushRadius);
+                if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                {
+                    float deltaH = isCtrlDown ? -brushStrength * deltaTime : brushStrength * deltaTime;
+                    terrain.ModifyHeightAt(physics, hitPoint.x, hitPoint.z, deltaH, brushRadius);
+                    TerrainAligner::AlignAllInRadius(scene, terrain, physics, hitPoint.x, hitPoint.z, brushRadius);
+                }
+            }
+            else // TexturePaint
+            {
+                if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                {
+                    terrain.PaintTextureAt(hitPoint.x, hitPoint.z, selectedTextureIdx, paintStrength * deltaTime, brushRadius);
+                }
             }
         }
         else if (currentTool == EditorTool::Props)
@@ -309,13 +360,22 @@ void LevelEditor::Update(Scene& scene, TerrainObject& terrain, Physics& physics,
                 }
                 else
                 {
-                    const auto& iInfo = g_AvailableItems[selectedPickupIdx];
+                    const auto& itInfo = g_AvailableItems[selectedPickupIdx];
                     Item item;
-                    if (selectedPickupIdx == 0) item = Items::CreateSword();
-                    else if (selectedPickupIdx == 1) item = Items::CreateAxe();
-                    else if (selectedPickupIdx == 2) item = Items::CreateHealthPotion();
-                    else if (selectedPickupIdx == 3) item = Items::CreateRangerArmor();
-                    else item = Items::CreatePeasantOutfit();
+                    if (itInfo.type == ItemType::Weapon)
+                    {
+                        if (strstr(itInfo.name, "Machado")) item = Items::CreateAxe();
+                        else item = Items::CreateSword();
+                    }
+                    else if (itInfo.type == ItemType::Armor)
+                    {
+                        if (strstr(itInfo.name, "Ranger")) item = Items::CreateRangerArmor();
+                        else item = Items::CreatePeasantOutfit();
+                    }
+                    else
+                    {
+                        item = Items::CreateHealthPotion();
+                    }
 
                     auto* pickup = new PickupObject(item, hitPoint);
                     pickup->Init(physics);
@@ -330,41 +390,35 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
 {
     if (!isOpen) return;
 
+    float screenW = (float)GetScreenWidth();
     float screenH = (float)GetScreenHeight();
 
-    float panelX = 16.0f;
-    float panelY = 16.0f;
+    // 1. Sidebar Panel
+    float panelX = 12.0f;
+    float panelY = 12.0f;
     float panelW = 350.0f;
-    float panelH = screenH - 32.0f;
+    float panelH = screenH - 24.0f;
 
-    Rectangle sidebarRect = { panelX, panelY, panelW, panelH };
+    Rectangle panelRect = { panelX, panelY, panelW, panelH };
+    ui.DrawPanel(panelRect, (Color){20, 16, 26, 245});
+    ui.DrawHeader((Rectangle){ panelX, panelY, panelW, 40.0f }, "[ LEVEL EDITOR ]");
 
-    // 1. Fundo do painel principal (estilo escuro do Menu de Pausa com borda Kenney)
-    ui.DrawPanel(sidebarRect, (Color){22, 18, 30, 245});
+    // 2. Header
+    float headerY = panelY + 48.0f;
+    DrawText("Ferramentas de Construção", panelX + 16.0f, headerY, 14, (Color){220, 200, 150, 255});
 
-    // 2. Header Superior
-    Rectangle headerRect = { panelX + 16.0f, panelY + 16.0f, panelW - 32.0f, 44.0f };
-    ui.DrawHeader(headerRect, "LEVEL EDITOR (F1)");
+    ui.DrawDivider(panelX + 16.0f, headerY + 22.0f, panelW - 32.0f);
 
-    const char* subText = "Segure RMB + WASD: Câmera Livre";
-    int subFontSize = 14;
-    int subTextW = MeasureText(subText, subFontSize);
-    DrawText(subText, panelX + (panelW - subTextW) / 2.0f, panelY + 68.0f, subFontSize, (Color){180, 170, 160, 255});
-
-    ui.DrawDivider(panelX + 16.0f, panelY + 88.0f, panelW - 32.0f);
-
-    // 3. Botões de Seleção de Ferramentas (2 linhas de 2 abas)
-    DrawText("FERRAMENTAS:", panelX + 18.0f, panelY + 100.0f, 16, (Color){255, 225, 120, 255});
-
-    float tabW = (panelW - 40.0f) * 0.5f;
-    float tabH = 34.0f;
+    // 3. Tab Buttons
+    float tabW = (panelW - 38.0f) / 2.0f;
+    float tabH = 36.0f;
     float tabX1 = panelX + 16.0f;
-    float tabX2 = panelX + 16.0f + tabW + 8.0f;
-    float tabY1 = panelY + 124.0f;
-    float tabY2 = panelY + 164.0f;
+    float tabX2 = tabX1 + tabW + 6.0f;
+    float tabY1 = headerY + 32.0f;
+    float tabY2 = tabY1 + tabH + 6.0f;
 
     Rectangle tabTerraform = { tabX1, tabY1, tabW, tabH };
-    if (ui.DrawTabButton(tabTerraform, "1. TERRAFORM", currentTool == EditorTool::Terraform))
+    if (ui.DrawTabButton(tabTerraform, "1. TERRENO", currentTool == EditorTool::Terraform))
     {
         currentTool = EditorTool::Terraform;
     }
@@ -387,38 +441,93 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
         currentTool = EditorTool::Pickups;
     }
 
-    ui.DrawDivider(panelX + 16.0f, panelY + 208.0f, panelW - 32.0f);
+    ui.DrawDivider(panelX + 16.0f, panelY + 162.0f, panelW - 32.0f);
 
     // 4. Conteúdo da Ferramenta Selecionada
-    float contentY = panelY + 220.0f;
+    float contentY = panelY + 172.0f;
     float footerHeight = 100.0f;
     float maxContentH = (panelY + panelH - footerHeight) - contentY;
 
     if (currentTool == EditorTool::Terraform)
     {
-        DrawText("[ TERRAFORMAGEM ]", panelX + 18.0f, contentY, 18, (Color){255, 225, 120, 255});
+        DrawText("[ TERRAFORMAGEM & PINTURA ]", panelX + 18.0f, contentY, 17, (Color){255, 225, 120, 255});
 
-        Rectangle sliderR1 = { panelX + 16.0f, contentY + 30.0f, panelW - 32.0f, 36.0f };
-        ui.DrawSlider(sliderR1, "Raio Brush", brushRadius, 1.0f, 30.0f);
+        // Sub-tabs de modo: [ ELEVAÇÃO ] e [ PINTURA ]
+        float subTabW = (panelW - 38.0f) / 2.0f;
+        float subTabH = 26.0f;
+        Rectangle tabElev = { panelX + 16.0f, contentY + 26.0f, subTabW, subTabH };
+        Rectangle tabPaint = { panelX + 16.0f + subTabW + 6.0f, contentY + 26.0f, subTabW, subTabH };
 
-        Rectangle sliderR2 = { panelX + 16.0f, contentY + 74.0f, panelW - 32.0f, 36.0f };
-        ui.DrawSlider(sliderR2, "Força", brushStrength, 1.0f, 25.0f);
+        if (ui.DrawTabButton(tabElev, "ELEVAÇÃO", terraformMode == TerraformMode::Elevation))
+        {
+            terraformMode = TerraformMode::Elevation;
+        }
+        if (ui.DrawTabButton(tabPaint, "PINTURA TEXTURA", terraformMode == TerraformMode::TexturePaint))
+        {
+            terraformMode = TerraformMode::TexturePaint;
+        }
 
-        // Caixa de Instruções
-        Rectangle instrRect = { panelX + 16.0f, contentY + 126.0f, panelW - 32.0f, 100.0f };
-        DrawRectangleRounded(instrRect, 0.08f, 4, (Color){15, 12, 20, 230});
-        ui.DrawBorder(instrRect, (Color){140, 110, 50, 200}, 1.5f);
+        if (terraformMode == TerraformMode::Elevation)
+        {
+            Rectangle sliderR1 = { panelX + 16.0f, contentY + 62.0f, panelW - 32.0f, 34.0f };
+            ui.DrawSlider(sliderR1, "Raio Brush", brushRadius, 1.0f, 30.0f);
 
-        DrawText("INSTRUÇÕES:", instrRect.x + 12.0f, instrRect.y + 10.0f, 15, (Color){255, 220, 100, 255});
-        DrawText("• Clique Esq: Subir terreno", instrRect.x + 12.0f, instrRect.y + 32.0f, 14, (Color){220, 210, 190, 255});
-        DrawText("• Ctrl + Clique: Abaixar terreno", instrRect.x + 12.0f, instrRect.y + 52.0f, 14, (Color){220, 210, 190, 255});
-        DrawText("• Scroll do Mouse: Ajustar raio", instrRect.x + 12.0f, instrRect.y + 72.0f, 14, (Color){220, 210, 190, 255});
+            Rectangle sliderR2 = { panelX + 16.0f, contentY + 104.0f, panelW - 32.0f, 34.0f };
+            ui.DrawSlider(sliderR2, "Força", brushStrength, 1.0f, 25.0f);
+
+            Rectangle instrRect = { panelX + 16.0f, contentY + 154.0f, panelW - 32.0f, 90.0f };
+            DrawRectangleRounded(instrRect, 0.08f, 4, (Color){15, 12, 20, 230});
+            ui.DrawBorder(instrRect, (Color){140, 110, 50, 200}, 1.5f);
+
+            DrawText("INSTRUÇÕES:", instrRect.x + 12.0f, instrRect.y + 8.0f, 14, (Color){255, 220, 100, 255});
+            DrawText("• Clique Esq: Subir terreno", instrRect.x + 12.0f, instrRect.y + 28.0f, 13, (Color){220, 210, 190, 255});
+            DrawText("• Ctrl + Clique: Abaixar terreno", instrRect.x + 12.0f, instrRect.y + 46.0f, 13, (Color){220, 210, 190, 255});
+            DrawText("• Scroll do Mouse: Ajustar raio", instrRect.x + 12.0f, instrRect.y + 64.0f, 13, (Color){220, 210, 190, 255});
+        }
+        else // TerraformMode::TexturePaint
+        {
+            // Seleção de textura ativa para pintura
+            float btnW = (panelW - 42.0f) / 2.0f;
+            float btnH = 26.0f;
+            const char* texNames[4] = { "1. Grama", "2. Terra", "3. Areia", "4. Pavimento" };
+            for (int t = 0; t < 4; t++)
+            {
+                float bx = panelX + 16.0f + (t % 2) * (btnW + 10.0f);
+                float by = contentY + 58.0f + (t / 2) * (btnH + 6.0f);
+                Rectangle bRect = { bx, by, btnW, btnH };
+                if (ui.DrawTabButton(bRect, texNames[t], selectedTextureIdx == t))
+                {
+                    selectedTextureIdx = t;
+                }
+            }
+
+            // Sliders para Escalas UV de cada textura
+            float uvY = contentY + 124.0f;
+            Rectangle sG = { panelX + 16.0f, uvY + 0.0f, panelW - 32.0f, 30.0f };
+            ui.DrawSlider(sG, "Escala Grama", terrain.uvScaleGrass, 1.0f, 80.0f);
+
+            Rectangle sD = { panelX + 16.0f, uvY + 34.0f, panelW - 32.0f, 30.0f };
+            ui.DrawSlider(sD, "Escala Terra", terrain.uvScaleDirt, 1.0f, 80.0f);
+
+            Rectangle sS = { panelX + 16.0f, uvY + 68.0f, panelW - 32.0f, 30.0f };
+            ui.DrawSlider(sS, "Escala Areia", terrain.uvScaleSand, 1.0f, 80.0f);
+
+            Rectangle sP = { panelX + 16.0f, uvY + 102.0f, panelW - 32.0f, 30.0f };
+            ui.DrawSlider(sP, "Escala Pavimento", terrain.uvScalePavement, 1.0f, 80.0f);
+
+            // Raio e Força de Pintura
+            float brushY = uvY + 138.0f;
+            Rectangle sRadius = { panelX + 16.0f, brushY + 0.0f, panelW - 32.0f, 30.0f };
+            ui.DrawSlider(sRadius, "Raio Brush", brushRadius, 1.0f, 30.0f);
+
+            Rectangle sStrength = { panelX + 16.0f, brushY + 34.0f, panelW - 32.0f, 30.0f };
+            ui.DrawSlider(sStrength, "Opacidade / Força", paintStrength, 0.2f, 10.0f);
+        }
     }
     else if (currentTool == EditorTool::Props)
     {
         DrawText("[ PROPS DO CENÁRIO ]", panelX + 18.0f, contentY, 18, (Color){255, 225, 120, 255});
 
-        // Lista com rolagem
         float listH = std::min(220.0f, maxContentH - 100.0f);
         Rectangle listRect = { panelX + 16.0f, contentY + 28.0f, panelW - 32.0f, listH };
         DrawRectangleRounded(listRect, 0.05f, 4, (Color){15, 12, 20, 240});
@@ -461,7 +570,6 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
 
         EndScissorMode();
 
-        // Instruções
         float instrY = listRect.y + listRect.height + 10.0f;
         Rectangle instrRect = { panelX + 16.0f, instrY, panelW - 32.0f, 74.0f };
         DrawRectangleRounded(instrRect, 0.08f, 4, (Color){15, 12, 20, 230});
@@ -475,7 +583,6 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
     {
         DrawText("[ INIMIGOS ]", panelX + 18.0f, contentY, 18, (Color){255, 225, 120, 255});
 
-        // Lista com rolagem
         float listH = std::min(180.0f, maxContentH - 150.0f);
         Rectangle listRect = { panelX + 16.0f, contentY + 28.0f, panelW - 32.0f, listH };
         DrawRectangleRounded(listRect, 0.05f, 4, (Color){15, 12, 20, 240});
@@ -520,35 +627,32 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
 
         EndScissorMode();
 
-        // Slider Nível
-        float lvlY = listRect.y + listRect.height + 8.0f;
-        Rectangle sliderLvl = { panelX + 16.0f, lvlY, panelW - 32.0f, 32.0f };
-        float lvlF = (float)selectedEnemyLevel;
-        if (ui.DrawSlider(sliderLvl, "Nível", lvlF, 1.0f, 50.0f))
-        {
-            selectedEnemyLevel = (int)lvlF;
-        }
+        float lvlSliderY = listRect.y + listRect.height + 8.0f;
+        Rectangle lvlSliderRect = { panelX + 16.0f, lvlSliderY, panelW - 32.0f, 36.0f };
+        float lvlFloat = (float)selectedEnemyLevel;
+        ui.DrawSlider(lvlSliderRect, "Nível Inimigo", lvlFloat, 1.0f, 50.0f);
+        selectedEnemyLevel = (int)lvlFloat;
 
-        // Botão Resetar Spawns
-        Rectangle resetBtn = { panelX + 16.0f, lvlY + 38.0f, panelW - 32.0f, 30.0f };
-        if (ui.DrawButton(resetBtn, "RESETAR POSIÇÕES"))
+        float resetBtnY = lvlSliderY + 42.0f;
+        Rectangle resetBtn = { panelX + 16.0f, resetBtnY, panelW - 32.0f, 32.0f };
+        if (ui.DrawButton(resetBtn, "RESETAR INIMIGOS"))
         {
             ResetEnemies(scene);
         }
 
-        // Instruções
-        Rectangle instrRect = { panelX + 16.0f, lvlY + 74.0f, panelW - 32.0f, 54.0f };
+        float instrY = resetBtnY + 38.0f;
+        Rectangle instrRect = { panelX + 16.0f, instrY, panelW - 32.0f, 74.0f };
         DrawRectangleRounded(instrRect, 0.08f, 4, (Color){15, 12, 20, 230});
         ui.DrawBorder(instrRect, (Color){140, 110, 50, 200}, 1.5f);
 
-        DrawText("• Clique Esq: Spawnar inimigo", instrRect.x + 12.0f, instrRect.y + 10.0f, 14, (Color){220, 210, 190, 255});
-        DrawText("• Ctrl + Clique: Remover inimigo", instrRect.x + 12.0f, instrRect.y + 30.0f, 14, (Color){220, 210, 190, 255});
+        DrawText("INSTRUÇÕES:", instrRect.x + 12.0f, instrRect.y + 8.0f, 15, (Color){255, 220, 100, 255});
+        DrawText("• Clique Esq: Posicionar inimigo", instrRect.x + 12.0f, instrRect.y + 28.0f, 14, (Color){220, 210, 190, 255});
+        DrawText("• Ctrl + Clique: Deletar inimigo", instrRect.x + 12.0f, instrRect.y + 48.0f, 14, (Color){220, 210, 190, 255});
     }
     else if (currentTool == EditorTool::Pickups)
     {
-        DrawText("[ ITENS COLETÁVEIS ]", panelX + 18.0f, contentY, 18, (Color){255, 225, 120, 255});
+        DrawText("[ COLETÁVEIS ]", panelX + 18.0f, contentY, 18, (Color){255, 225, 120, 255});
 
-        // Lista com rolagem
         float listH = std::min(220.0f, maxContentH - 100.0f);
         Rectangle listRect = { panelX + 16.0f, contentY + 28.0f, panelW - 32.0f, listH };
         DrawRectangleRounded(listRect, 0.05f, 4, (Color){15, 12, 20, 240});
@@ -591,7 +695,6 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
 
         EndScissorMode();
 
-        // Instruções
         float instrY = listRect.y + listRect.height + 10.0f;
         Rectangle instrRect = { panelX + 16.0f, instrY, panelW - 32.0f, 74.0f };
         DrawRectangleRounded(instrRect, 0.08f, 4, (Color){15, 12, 20, 230});
@@ -602,17 +705,17 @@ void LevelEditor::DrawUI(UISystem& ui, Scene& scene, TerrainObject& terrain, Phy
         DrawText("• Ctrl + Clique: Deletar item", instrRect.x + 12.0f, instrRect.y + 48.0f, 14, (Color){220, 210, 190, 255});
     }
 
-    // 5. Rodapé Fixo (Salvar / Recarregar Level)
-    float footerY = panelY + panelH - footerHeight;
-    ui.DrawDivider(panelX + 16.0f, footerY, panelW - 32.0f);
+    // 5. Footer com Botões Salvar e Carregar Level
+    float footerY = panelY + panelH - 96.0f;
+    ui.DrawDivider(panelX + 16.0f, footerY - 8.0f, panelW - 32.0f);
 
-    Rectangle saveBtn = { panelX + 16.0f, footerY + 12.0f, panelW - 32.0f, 36.0f };
+    Rectangle saveBtn = { panelX + 16.0f, footerY, panelW - 32.0f, 32.0f };
     if (ui.DrawButton(saveBtn, "SALVAR LEVEL (.lvl)"))
     {
         SaveLevel(scene, terrain, "Game/Assets/Levels/Default.lvl");
     }
 
-    Rectangle loadBtn = { panelX + 16.0f, footerY + 54.0f, panelW - 32.0f, 32.0f };
+    Rectangle loadBtn = { panelX + 16.0f, footerY + 40.0f, panelW - 32.0f, 32.0f };
     if (ui.DrawButton(loadBtn, "RECARREGAR SALVO (.lvl)"))
     {
         LoadLevel(scene, terrain, physics, "Game/Assets/Levels/Default.lvl");
@@ -634,7 +737,18 @@ void LevelEditor::Draw3DGizmos(const Scene& scene, const TerrainObject& terrain)
 
         if (currentTool == EditorTool::Terraform)
         {
-            DrawCircle3D((Vector3){ hitPoint.x, hitPoint.y + 0.1f, hitPoint.z }, brushRadius, (Vector3){ 1.0f, 0.0f, 0.0f }, 90.0f, (Color){ 255, 100, 100, 180 });
+            if (terraformMode == TerraformMode::Elevation)
+            {
+                DrawCircle3D((Vector3){ hitPoint.x, hitPoint.y + 0.1f, hitPoint.z }, brushRadius, (Vector3){ 1.0f, 0.0f, 0.0f }, 90.0f, (Color){ 255, 100, 100, 180 });
+            }
+            else // TexturePaint
+            {
+                Color brushColor = (selectedTextureIdx == 0) ? (Color){ 60, 220, 60, 200 } :
+                                   (selectedTextureIdx == 1) ? (Color){ 160, 110, 50, 200 } :
+                                   (selectedTextureIdx == 2) ? (Color){ 240, 220, 90, 200 } :
+                                                               (Color){ 180, 180, 200, 200 };
+                DrawCircle3D((Vector3){ hitPoint.x, hitPoint.y + 0.1f, hitPoint.z }, brushRadius, (Vector3){ 1.0f, 0.0f, 0.0f }, 90.0f, brushColor);
+            }
         }
         else if (currentTool == EditorTool::Props || currentTool == EditorTool::Enemies || currentTool == EditorTool::Pickups)
         {
@@ -703,6 +817,19 @@ bool LevelEditor::SaveLevel(const Scene& scene, const TerrainObject& terrain, co
         if (i + 1 < terrain.heightData.size()) f << ", ";
     }
     f << "],\n";
+
+    // Escalas de UV do Terreno
+    f << "  \"uvScales\": [ "
+      << terrain.uvScaleGrass << ", "
+      << terrain.uvScaleDirt << ", "
+      << terrain.uvScaleSand << ", "
+      << terrain.uvScalePavement << " ],\n";
+
+    // Stencil / Splatmap em Base64
+    if (!terrain.splatmapData.empty())
+    {
+        f << "  \"splatmap\": \"" << Base64Encode(terrain.splatmapData.data(), terrain.splatmapData.size()) << "\",\n";
+    }
 
     f << "  \"props\": [\n";
     bool firstProp = true;
@@ -834,7 +961,46 @@ bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physi
         }
     }
 
-    // 2. Remove objetos dinâmicos existentes (props, inimigos e coletáveis)
+    // 2. Carrega UV Scales do terreno
+    size_t uvPos = content.find("\"uvScales\": [");
+    if (uvPos != std::string::npos)
+    {
+        size_t start = uvPos + 13;
+        size_t end = content.find("]", start);
+        if (end != std::string::npos)
+        {
+            std::string uvStr = content.substr(start, end - start);
+            std::stringstream ss(uvStr);
+            float g = 25.0f, d = 25.0f, s = 25.0f, p = 25.0f;
+            char comma;
+            if (ss >> g >> comma >> d >> comma >> s >> comma >> p)
+            {
+                terrain.uvScaleGrass = g;
+                terrain.uvScaleDirt = d;
+                terrain.uvScaleSand = s;
+                terrain.uvScalePavement = p;
+            }
+        }
+    }
+
+    // 3. Carrega Stencil / Splatmap
+    size_t splatPos = content.find("\"splatmap\": \"");
+    if (splatPos != std::string::npos)
+    {
+        size_t start = splatPos + 13;
+        size_t end = content.find("\"", start);
+        if (end != std::string::npos)
+        {
+            std::string b64Str = content.substr(start, end - start);
+            std::vector<uint8_t> decodedSplat = Base64Decode(b64Str);
+            if (decodedSplat.size() == (size_t)(TerrainObject::SPLATMAP_RES * TerrainObject::SPLATMAP_RES * 4))
+            {
+                terrain.SetSplatmapData(decodedSplat);
+            }
+        }
+    }
+
+    // 4. Remove objetos dinâmicos existentes (props, inimigos e coletáveis)
     for (auto it = scene.objects.begin(); it != scene.objects.end(); )
     {
         GameObject* obj = *it;
@@ -850,7 +1016,7 @@ bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physi
         }
     }
 
-    // 3. Re-instancia Props
+    // 5. Re-instancia Props
     size_t propsPos = content.find("\"props\": [");
     if (propsPos != std::string::npos)
     {
@@ -882,7 +1048,7 @@ bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physi
         }
     }
 
-    // 4. Re-instancia Inimigos
+    // 6. Re-instancia Inimigos
     size_t enemiesPos = content.find("\"enemies\": [");
     if (enemiesPos != std::string::npos)
     {
@@ -910,7 +1076,7 @@ bool LevelEditor::LoadLevel(Scene& scene, TerrainObject& terrain, Physics& physi
         }
     }
 
-    // 5. Re-instancia Coletáveis
+    // 7. Re-instancia Coletáveis
     size_t pickupsPos = content.find("\"pickups\": [");
     if (pickupsPos != std::string::npos)
     {

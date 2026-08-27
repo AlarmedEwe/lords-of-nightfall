@@ -26,7 +26,7 @@ void Scene::Init()
 
         if (auto* terrain = dynamic_cast<TerrainObject*>(obj))
         {
-            lightingSystem.ApplyToModel(terrain->model);
+            // O terreno gerencia seu próprio terrainShader com Stencil/Splatmap multi-textura
         }
         else if (auto* player = dynamic_cast<PlayerObject*>(obj))
         {
@@ -84,6 +84,10 @@ void Scene::Draw()
     skybox.Draw(camera, lightingSystem.lightDir);
 
     lightingSystem.BindLightingUniforms(camera.position);
+    if (TerrainObject::s_Instance)
+    {
+        TerrainObject::s_Instance->UpdateLightingUniforms(lightingSystem, camera.position);
+    }
 
     BeginMode3D(camera);
     for (auto* obj : objects)
