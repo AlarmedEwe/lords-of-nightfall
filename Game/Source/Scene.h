@@ -6,6 +6,7 @@
 #include "GameObject.h"
 #include "Skybox.h"
 #include "LightingSystem.h"
+#include "DamageFeedbackSystem.h"
 #include <vector>
 
 struct Scene
@@ -16,6 +17,7 @@ struct Scene
 
     Skybox skybox;
     LightingSystem lightingSystem;
+    DamageFeedbackSystem damageFeedback;
 
     // Câmera terceira pessoa
     float cameraYaw = 0.0f;

@@ -1,6 +1,8 @@
 #include "EnemyAI.h"
 #include "EnemyObject.h"
 #include "PlayerObject.h"
+#include "TerrainObject.h"
+#include "../DamageFeedbackSystem.h"
 #include "raymath.h"
 #include <cmath>
 #include <cstdlib>
@@ -9,7 +11,7 @@
 namespace EnemyAI
 {
 
-void Update(EnemyObject& enemy, PlayerObject* player, float deltaTime)
+void Update(EnemyObject& enemy, PlayerObject* player, float deltaTime, DamageFeedbackSystem* feedback)
 {
     if (enemy.isDead || player == nullptr) return;
 
@@ -53,11 +55,11 @@ void Update(EnemyObject& enemy, PlayerObject* player, float deltaTime)
             float angle = ((float)(rand() % 360)) * DEG2RAD;
             float dist = 3.0f + (float)(rand() % (int)(enemy.patrolRadius * 10)) / 10.0f;
 
-            enemy.patrolTarget = {
-                enemy.spawnPos.x + cosf(angle) * dist,
-                enemy.spawnPos.y,
-                enemy.spawnPos.z + sinf(angle) * dist
-            };
+            float targetX = enemy.spawnPos.x + cosf(angle) * dist;
+            float targetZ = enemy.spawnPos.z + sinf(angle) * dist;
+            float targetY = TerrainObject::s_Instance ? TerrainObject::s_Instance->GetHeightAt(targetX, targetZ) : enemy.spawnPos.y;
+
+            enemy.patrolTarget = { targetX, targetY, targetZ };
 
             enemy.state = EnemyState::PatrolWalk;
             enemy.stateTimer = 8.0f;
@@ -138,8 +140,16 @@ void Update(EnemyObject& enemy, PlayerObject* player, float deltaTime)
             if (distToPlayer <= 2.6f && player->stats.health > 0.0f)
             {
                 float damage = std::max(1.0f, enemy.stats.baseAttack - player->GetTotalDefense());
-                player->stats.health -= damage;
-                if (player->stats.health < 0.0f) player->stats.health = 0.0f;
+                player->TakeDamage(damage);
+
+                if (feedback)
+                {
+                    Vector3 playerHeadPos = { player->position.x, player->position.y + 1.8f, player->position.z };
+                    Vector3 playerBloodPos = { player->position.x, player->position.y + 1.0f, player->position.z };
+
+                    feedback->SpawnDamageText(playerHeadPos, damage, true);
+                    feedback->SpawnBloodParticles(playerBloodPos, 20);
+                }
             }
         }
 

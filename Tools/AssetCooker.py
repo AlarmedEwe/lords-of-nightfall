@@ -3,6 +3,15 @@
 
 import os
 import sys
+import site
+
+# Garante inclusão de site-packages do usuário (ex: /var/data/python/lib/python3.13/site-packages)
+user_site = site.getusersitepackages()
+if user_site and user_site not in sys.path and os.path.exists(user_site):
+    sys.path.append(user_site)
+for extra in ["/var/data/python/lib/python3.13/site-packages", "/var/data/python/lib/python3.12/site-packages"]:
+    if os.path.exists(extra) and extra not in sys.path:
+        sys.path.append(extra)
 
 from cookers.shaders_cooker import cook_shaders
 from cookers.ui_cooker import cook_ui_assets

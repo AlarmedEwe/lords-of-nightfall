@@ -199,6 +199,9 @@ void TerrainObject::Shutdown(Physics& physics)
 
 float TerrainObject::GetHeightAt(float x, float z)
 {
+    if (heightData.empty() || heightData.size() < (size_t)(GRID_SIZE * GRID_SIZE))
+        return 0.0f;
+
     float offsetX = -(float)(GRID_SIZE - 1) * TERRAIN_SCALE * 0.5f;
     float offsetZ = -(float)(GRID_SIZE - 1) * TERRAIN_SCALE * 0.5f;
 

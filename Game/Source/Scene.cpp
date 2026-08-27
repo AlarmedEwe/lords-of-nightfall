@@ -42,6 +42,7 @@ void Scene::Init()
 void Scene::Update(float deltaTime)
 {
     physics.Update(deltaTime);
+    damageFeedback.Update(deltaTime);
 
     for (auto* obj : objects)
         obj->Update(physics, deltaTime);
@@ -81,11 +82,13 @@ void Scene::Draw()
     {
         obj->Draw();
     }
+    damageFeedback.DrawParticles();
     EndMode3D();
 }
 
 void Scene::Shutdown()
 {
+    damageFeedback.Clear();
     skybox.Shutdown();
     lightingSystem.Shutdown();
 

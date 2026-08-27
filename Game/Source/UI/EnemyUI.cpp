@@ -18,7 +18,7 @@ void DrawOverhead(const EnemyObject& enemy, Camera3D camera, Vector3 playerPos, 
 
     if (!isNear && !isDamaged) return;
 
-    float headOffset = (enemy.category == "Big") ? 2.3f : ((enemy.category == "Flying") ? 2.5f : 1.6f);
+    float headOffset = (enemy.category == "Big") ? 2.8f : ((enemy.category == "Flying") ? 3.0f : 2.2f);
     Vector3 headWorldPos = { enemy.position.x, enemy.position.y + headOffset, enemy.position.z };
 
     Vector2 screenPos = GetWorldToScreen(headWorldPos, camera);
@@ -34,7 +34,7 @@ void DrawOverhead(const EnemyObject& enemy, Camera3D camera, Vector3 playerPos, 
     float boxW = 140.0f;
     float boxH = 34.0f;
     float boxX = screenPos.x - boxW / 2.0f;
-    float boxY = screenPos.y - boxH / 2.0f;
+    float boxY = screenPos.y - boxH - 6.0f;
 
     UIWidgets::DrawPanel(ui, (Rectangle){ boxX, boxY, boxW, boxH }, (Color){ 20, 16, 28, 220 });
     UIWidgets::DrawBorder(ui, (Rectangle){ boxX, boxY, boxW, boxH }, (Color){ 180, 140, 60, 255 }, 1.5f);

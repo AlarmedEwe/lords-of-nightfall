@@ -64,6 +64,7 @@ struct PlayerObject : public GameObject
 
     PlayerAnimState animState = PlayerAnimState::Idle;
     float animTime = 0.0f;
+    float hitFlashTimer = 0.0f;
 
     PlayerObject()
     {
@@ -77,12 +78,13 @@ struct PlayerObject : public GameObject
     void Draw() override;
     void Shutdown(Physics& physics) override;
 
+    void TakeDamage(float damage);
     void Heal(float amount);
     void AddXp(float amount);
     void SetOutfit(const std::string& modelFile, const std::string& textureFile);
     float GetTotalAttack() const;
     float GetTotalDefense() const;
-    void PerformAttackSweep(std::vector<GameObject*>& objects);
+    void PerformAttackSweep(std::vector<GameObject*>& objects, struct DamageFeedbackSystem* feedback = nullptr);
 };
 
 #endif // PLAYER_OBJECT_H

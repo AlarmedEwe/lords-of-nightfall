@@ -1,7 +1,9 @@
 #include "PlayerObject.h"
 #include "EnemyObject.h"
+#include "TerrainObject.h"
 #include "PlayerEquipment.h"
 #include "../Item.h"
+#include "../DamageFeedbackSystem.h"
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
@@ -36,6 +38,12 @@ void PlayerObject::Init(Physics& physics)
 
 void PlayerObject::Update(Physics& physics, float deltaTime)
 {
+    if (hitFlashTimer > 0.0f)
+    {
+        hitFlashTimer -= deltaTime;
+        if (hitFlashTimer < 0.0f) hitFlashTimer = 0.0f;
+    }
+
     // Respawn do jogador se a vida zerar
     if (stats.IsDead())
     {
@@ -143,6 +151,17 @@ void PlayerObject::Update(Physics& physics, float deltaTime)
     position.y = (float)charPos.GetY();
     position.z = (float)charPos.GetZ();
 
+    if (TerrainObject::s_Instance)
+    {
+        float terrainY = TerrainObject::s_Instance->GetHeightAt(position.x, position.z);
+        float minPlayerY = terrainY + 0.9f;
+        if (position.y < minPlayerY)
+        {
+            position.y = minPlayerY;
+            character->SetPosition(JPH::RVec3(position.x, position.y, position.z));
+        }
+    }
+
     // Atualiza estado de animação e reproduz nos modelos
     int currentAnimIndex = 0;
     if (isAttacking)
@@ -205,6 +224,13 @@ void PlayerObject::Shutdown(Physics& physics)
     characterSettings = nullptr;
 }
 
+void PlayerObject::TakeDamage(float damage)
+{
+    stats.health -= damage;
+    if (stats.health < 0.0f) stats.health = 0.0f;
+    hitFlashTimer = 0.25f;
+}
+
 void PlayerObject::Heal(float amount)
 {
     stats.Heal(amount);
@@ -230,7 +256,7 @@ float PlayerObject::GetTotalDefense() const
     return stats.baseDefense + inventory.GetTotalDefenseBonus();
 }
 
-void PlayerObject::PerformAttackSweep(std::vector<GameObject*>& objects)
+void PlayerObject::PerformAttackSweep(std::vector<GameObject*>& objects, DamageFeedbackSystem* feedback)
 {
     if (!isAttacking || hasDealtDamageThisAttack) return;
 
@@ -257,6 +283,16 @@ void PlayerObject::PerformAttackSweep(std::vector<GameObject*>& objects)
                         bool wasAlive = !enemy->isDead;
 
                         enemy->TakeDamage(dmg, stats.level);
+
+                        if (feedback)
+                        {
+                            float headOffset = (enemy->category == "Big") ? 1.8f : ((enemy->category == "Flying") ? 2.0f : 1.2f);
+                            Vector3 hitTextPos = { enemy->position.x, enemy->position.y + headOffset, enemy->position.z };
+                            Vector3 bloodPos = { enemy->position.x, enemy->position.y + 1.0f, enemy->position.z };
+
+                            feedback->SpawnDamageText(hitTextPos, dmg, false);
+                            feedback->SpawnBloodParticles(bloodPos, 20);
+                        }
 
                         if (wasAlive && enemy->isDead)
                         {

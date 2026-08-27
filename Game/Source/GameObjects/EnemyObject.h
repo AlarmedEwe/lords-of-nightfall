@@ -57,6 +57,7 @@ struct EnemyObject : public GameObject
     bool isMarkedForCleanup = false;
     float deathTimer = 0.0f;
     float hitReactTimer = 0.0f;
+    float hitFlashTimer = 0.0f;
 
     LONModel monsterModel;
     Color tintColor = WHITE;
@@ -65,7 +66,7 @@ struct EnemyObject : public GameObject
 
     void Init(Physics& physics) override;
     void Update(Physics& physics, float deltaTime) override;
-    void UpdateAI(PlayerObject* player, float deltaTime);
+    void UpdateAI(PlayerObject* player, float deltaTime, struct DamageFeedbackSystem* feedback = nullptr);
     void Draw() override;
     void Shutdown(Physics& physics) override;
 

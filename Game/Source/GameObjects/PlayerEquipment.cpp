@@ -78,19 +78,21 @@ void Sync(PlayerObject& player)
 
 void Draw(PlayerObject& player, Vector3 drawPos)
 {
+    Color tint = (player.hitFlashTimer > 0.0f) ? (Color){ 255, 60, 60, 255 } : WHITE;
+
     if (player.characterModel.isLoaded)
     {
-        player.characterModel.Draw(drawPos, player.meshYaw, 1.0f, WHITE);
+        player.characterModel.Draw(drawPos, player.meshYaw, 1.0f, tint);
     }
     else
     {
-        DrawCube(player.position, 0.6f, 1.8f, 0.6f, BLUE);
+        DrawCube(player.position, 0.6f, 1.8f, 0.6f, tint);
         DrawCubeWires(player.position, 0.61f, 1.81f, 0.61f, DARKBLUE);
     }
 
     if (player.isArmorModelLoaded)
     {
-        player.equippedArmorModel.Draw(drawPos, player.meshYaw, 1.0f, WHITE);
+        player.equippedArmorModel.Draw(drawPos, player.meshYaw, 1.0f, tint);
     }
 
     // Renderiza a Arma Equipada anexada à mão do personagem (socket da mão direita)
@@ -104,7 +106,7 @@ void Draw(PlayerObject& player, Vector3 drawPos)
         Matrix weaponWorld = MatrixMultiply(weaponHandMatrix, charMatrix);
 
         player.equippedWeaponModel.transform = weaponWorld;
-        DrawModel(player.equippedWeaponModel, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
+        DrawModel(player.equippedWeaponModel, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, tint);
         player.equippedWeaponModel.transform = MatrixIdentity();
     }
 }

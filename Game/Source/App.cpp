@@ -95,7 +95,9 @@ void App::Init()
 
         float angle = ((float)(rand() % 360)) * DEG2RAD;
         float dist = 30.0f + (float)(rand() % 650) / 10.0f; // Área segura: inimigos aparecem a no mínimo 30m do jogador
-        Vector3 spawnPos = { cosf(angle) * dist, 0.0f, sinf(angle) * dist };
+        float spawnX = cosf(angle) * dist;
+        float spawnZ = sinf(angle) * dist;
+        Vector3 spawnPos = { spawnX, 0.0f, spawnZ };
 
         int enemyLevel = 1 + (rand() % 15);
 
@@ -208,7 +210,7 @@ void App::Run()
             if (!isPaused && !isInventoryOpen)
             {
                 player.cameraYaw = scene.cameraYaw;
-                player.PerformAttackSweep(scene.objects);
+                player.PerformAttackSweep(scene.objects, &scene.damageFeedback);
 
                 for (size_t i = 0; i < scene.objects.size(); )
                 {
@@ -224,7 +226,7 @@ void App::Run()
                         }
                         else
                         {
-                            enemy->UpdateAI(&player, dt);
+                            enemy->UpdateAI(&player, dt, &scene.damageFeedback);
                         }
                     }
                     i++;
@@ -272,6 +274,9 @@ void App::Run()
             ClearBackground((Color){20, 20, 30, 255});
 
             scene.Draw();
+
+            // Renderiza Números de Dano Flutuantes na UI
+            scene.damageFeedback.DrawUI(scene.camera);
 
             // Desenha Barras de Vida e Nome em cima da cabeça dos inimigos visíveis
             for (auto* obj : scene.objects)
