@@ -37,10 +37,15 @@ static void CaptureScreenshotToDiskAndClipboard()
 }
 #endif
 
-void App::Init()
+bool App::Init()
 {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
     InitWindow(screenWidth, screenHeight, "Lords of Nightfall");
+    if (!IsWindowReady())
+    {
+        TraceLog(LOG_ERROR, "GLFW/Window failed to initialize! Check display environment.");
+        return false;
+    }
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
 
@@ -174,6 +179,7 @@ void App::Init()
     state = GameState::MainMenu;
     EnableCursor();
 #endif
+    return true;
 }
 
 void App::StartGameplay()

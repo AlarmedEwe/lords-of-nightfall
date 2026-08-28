@@ -47,7 +47,7 @@ struct App
     TerrainObject terrain;
     PlayerObject player;
 
-    void Init();
+    bool Init();
     void Run();
     void Shutdown();
 

@@ -50,6 +50,9 @@ add_compile_definitions(
 # ==============================================================================
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
+if(UNIX AND NOT APPLE)
+    set(GLFW_BUILD_WAYLAND ON CACHE BOOL "" FORCE)
+endif()
 add_subdirectory(Game/ThirdParty/raylib)
 
 # ==============================================================================
@@ -95,9 +98,15 @@ add_executable(${PROJECT_NAME} ${GAME_SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Game/Source
+    ${CMAKE_SOURCE_DIR}/Game/ThirdParty/raylib/src
     ${CMAKE_SOURCE_DIR}/Game/ThirdParty/JoltPhysics
     ${CMAKE_SOURCE_DIR}/Game/ThirdParty/imgui
     ${CMAKE_SOURCE_DIR}/Game/ThirdParty/rlImGui
+    ${CMAKE_SOURCE_DIR}/Game/ThirdParty/qoi
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    raylib
     Jolt
     imgui
 )
