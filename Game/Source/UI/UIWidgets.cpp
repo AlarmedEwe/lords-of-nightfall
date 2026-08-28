@@ -1,5 +1,6 @@
 #include "UIWidgets.h"
 #include "UISystem.h"
+#include "../TextureLoader.h"
 #include <cstdio>
 
 namespace UIWidgets
@@ -7,24 +8,7 @@ namespace UIWidgets
 
 Texture2D TryLoadTexture(const char* relPath)
 {
-    const char* candidatePaths[] = {
-        relPath,
-        TextFormat("Assets/%s", relPath),
-        TextFormat("Build/Development/Assets/%s", relPath),
-        TextFormat("Game/Assets/kenney_fantasy-ui-borders/PNG/Double/%s", relPath),
-        TextFormat("Game/Assets/Ultimate RPG Items Pack/%s", relPath)
-    };
-
-    for (const char* path : candidatePaths)
-    {
-        if (FileExists(path))
-        {
-            Texture2D tex = LoadTexture(path);
-            if (tex.id > 0)
-                return tex;
-        }
-    }
-    return (Texture2D){ 0 };
+    return TextureLoader::Load(relPath ? relPath : "", false, false);
 }
 
 void DrawPanel(UISystem& ui, Rectangle rect, Color tint)

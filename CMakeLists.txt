@@ -94,14 +94,10 @@ file(GLOB_RECURSE GAME_SOURCES "Game/Source/*.cpp")
 add_executable(${PROJECT_NAME} ${GAME_SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    Game/Source
-    Game/ThirdParty/JoltPhysics
-    Game/ThirdParty/imgui
-    Game/ThirdParty/rlImGui
-)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    raylib
+    ${CMAKE_SOURCE_DIR}/Game/Source
+    ${CMAKE_SOURCE_DIR}/Game/ThirdParty/JoltPhysics
+    ${CMAKE_SOURCE_DIR}/Game/ThirdParty/imgui
+    ${CMAKE_SOURCE_DIR}/Game/ThirdParty/rlImGui
     Jolt
     imgui
 )

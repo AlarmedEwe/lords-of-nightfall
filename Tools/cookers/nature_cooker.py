@@ -5,6 +5,8 @@ import assimp_py
 import numpy as np
 
 
+from .qoi_encoder import encode_image_to_lontex
+
 def get_target_height(base_name):
     n = base_name.lower()
     if 'flower' in n: return 0.5
@@ -37,14 +39,15 @@ def cook_nature_assets(source_dir, output_dir):
     os.makedirs(models_out_dir, exist_ok=True)
     os.makedirs(textures_out_dir, exist_ok=True)
 
-    # 1. Copia todas as texturas de natureza para a pasta de saída (com verificação de timestamp)
+    # 1. Converte todas as texturas de natureza para .lontex (com verificação de timestamp)
     if os.path.exists(nature_tex_dir):
         for tex_file in os.listdir(nature_tex_dir):
-            if tex_file.lower().endswith(".png"):
+            if tex_file.lower().endswith((".png", ".jpg", ".jpeg", ".bmp")):
                 src_tex = os.path.join(nature_tex_dir, tex_file)
-                dst_tex = os.path.join(textures_out_dir, tex_file)
+                base_name = os.path.splitext(tex_file)[0]
+                dst_tex = os.path.join(textures_out_dir, base_name + ".lontex")
                 if not os.path.exists(dst_tex) or os.path.getmtime(src_tex) > os.path.getmtime(dst_tex):
-                    shutil.copy2(src_tex, dst_tex)
+                    encode_image_to_lontex(src_tex, dst_tex)
 
     # 2. Configurações de pós-processamento do Assimp (SEM Process_PreTransformVertices para evitar 100x scale do Unity/FBX)
     post_proc = (assimp_py.Process_Triangulate |

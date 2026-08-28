@@ -19,76 +19,15 @@ static float Noise2D(float x, float z)
     return value;
 }
 
-static Texture2D TryLoadTerrainTexture(const char* filename)
-{
-    const char* paths[] = {
-        TextFormat("Terrain/%s", filename),
-        TextFormat("Assets/Terrain/%s", filename),
-        TextFormat("Build/Development/Assets/Terrain/%s", filename),
-        TextFormat("Game/Assets/Terrain/%s", filename)
-    };
-    for (const char* p : paths)
-    {
-        if (FileExists(p))
-        {
-            Texture2D tex = LoadTexture(p);
-            if (tex.id > 0)
-            {
-                SetTextureWrap(tex, TEXTURE_WRAP_REPEAT);
-                SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR);
-                GenTextureMipmaps(&tex);
-                TraceLog(LOG_INFO, "[Terrain] Textura carregada com sucesso: %s (ID: %u, %dx%d)", p, tex.id, tex.width, tex.height);
-                return tex;
-            }
-        }
-    }
-    TraceLog(LOG_WARNING, "[Terrain] Textura NAO encontrada: %s", filename);
-    return (Texture2D){ 0 };
-}
-
-static Shader TryLoadTerrainShader()
-{
-    const char* vsPaths[] = {
-        "Shaders/terrain.vs",
-        "Assets/Shaders/terrain.vs",
-        "Build/Development/Assets/Shaders/terrain.vs",
-        "Game/Assets/Shaders/terrain.vs"
-    };
-
-    const char* fsPaths[] = {
-        "Shaders/terrain.fs",
-        "Assets/Shaders/terrain.fs",
-        "Build/Development/Assets/Shaders/terrain.fs",
-        "Game/Assets/Shaders/terrain.fs"
-    };
-
-    const char* foundVS = nullptr;
-    const char* foundFS = nullptr;
-
-    for (const char* p : vsPaths)
-    {
-        if (FileExists(p)) { foundVS = p; break; }
-    }
-    for (const char* p : fsPaths)
-    {
-        if (FileExists(p)) { foundFS = p; break; }
-    }
-
-    if (foundVS && foundFS)
-    {
-        return LoadShader(foundVS, foundFS);
-    }
-    TraceLog(LOG_WARNING, "[Terrain] Shader de terreno nao encontrado, usando shader padrao.");
-    return (Shader){ 0 };
-}
+#include "../TextureLoader.h"
 
 void TerrainObject::InitTextures()
 {
-    // Carrega as 4 texturas de terreno da pasta Game/Assets/Terrain
-    texGrass = TryLoadTerrainTexture("grass.png");
-    texDirt = TryLoadTerrainTexture("dirt.png");
-    texSand = TryLoadTerrainTexture("sand.png");
-    texPavement = TryLoadTerrainTexture("pavement.png");
+    // Carrega as 4 texturas de terreno no formato proprietário .lontex (QOI)
+    texGrass = TextureLoader::Load("Terrain/grass.lontex", true, true);
+    texDirt = TextureLoader::Load("Terrain/dirt.lontex", true, true);
+    texSand = TextureLoader::Load("Terrain/sand.lontex", true, true);
+    texPavement = TextureLoader::Load("Terrain/pavement.lontex", true, true);
 
     // Inicializa o Splatmap / Stencil Map (256x256 RGBA, padrão 100% Grama: R=255, G=0, B=0, A=0)
     if (splatmapData.empty() || splatmapData.size() != (size_t)(SPLATMAP_RES * SPLATMAP_RES * 4))
@@ -150,6 +89,42 @@ void TerrainObject::SetSplatmapData(const std::vector<uint8_t>& data)
             UpdateTexture(splatmapTexture, splatmapData.data());
         }
     }
+}
+
+static Shader TryLoadTerrainShader()
+{
+    const char* vsPaths[] = {
+        "Shaders/terrain.vs",
+        "Assets/Shaders/terrain.vs",
+        "Build/Development/Assets/Shaders/terrain.vs",
+        "Game/Assets/Shaders/terrain.vs"
+    };
+
+    const char* fsPaths[] = {
+        "Shaders/terrain.fs",
+        "Assets/Shaders/terrain.fs",
+        "Build/Development/Assets/Shaders/terrain.fs",
+        "Game/Assets/Shaders/terrain.fs"
+    };
+
+    const char* foundVS = nullptr;
+    const char* foundFS = nullptr;
+
+    for (const char* p : vsPaths)
+    {
+        if (FileExists(p)) { foundVS = p; break; }
+    }
+    for (const char* p : fsPaths)
+    {
+        if (FileExists(p)) { foundFS = p; break; }
+    }
+
+    if (foundVS && foundFS)
+    {
+        return LoadShader(foundVS, foundFS);
+    }
+    TraceLog(LOG_WARNING, "[Terrain] Shader de terreno nao encontrado, usando shader padrao.");
+    return (Shader){ 0 };
 }
 
 void TerrainObject::InitShader()

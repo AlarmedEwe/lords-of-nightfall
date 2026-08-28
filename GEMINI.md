@@ -80,11 +80,16 @@ lords-of-nightfall/
 
 ## 4. Pipeline de Assets & Asset Cooker
 
-> **REGRA CRÍTICA DE ASSETS**: O jogo em tempo de execução **NUNCA** carrega arquivos `.fbx` brutos.
-> O script `Tools/AssetCooker.py` é executado como **Build Event incremental** via CMake, processando apenas arquivos modificados (timestamp check) e convertendo-os em formatos binários proprietários (`.lonmodel`, etc.) copiados para a pasta `Build/<Config>/assets/`.
+> **REGRA CRÍTICA DE ASSETS**: O jogo em tempo de execução **NUNCA** carrega arquivos `.fbx` ou imagens `.png` brutas diretamente.
+> O script `Tools/AssetCooker.py` é executado como **Build Event incremental** via CMake, processando apenas arquivos modificados (timestamp check) e convertendo:
+> 1. Modelos 3D e animações em `.lonmodel` proprietários.
+> 2. Texturas de terreno, UI, natureza e personagens no formato proprietário ultrarrápido **`.lontex` (QOI - Quite OK Image format)** utilizando a biblioteca `Game/ThirdParty/qoi/qoi.h`.
+> 3. Cenas e levels em `.lvl` JSON serializados.
+> 4. Todos os binários processados são copiados para a pasta `Build/<Config>/Assets/`.
 
-### 4.1 Requisitos de Ambiente Python
+### 4.1 Requisitos de Ambiente Python & Formato de Texturas (.lontex)
 - Usar ambiente virtual `.venv` com dependências listadas em `requirements.txt` (incluindo `assimp`, etc.).
+- **Carregador de Texturas C++ (`TextureLoader`)**: O engine decodifica `.lontex` diretamente da VRAM via `qoi_read` de forma instantânea sem overhead de descompressão PNG em runtime.
 
 ### 4.2 Assets de Personagens
 - **Animações**: `Game/Assets/Universal Animation Library/` (`UAL1_standard.fbx`) e `Game/Assets/Universal Animation Library 2/` (`UAL2_standard.fbx`).

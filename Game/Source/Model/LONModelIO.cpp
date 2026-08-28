@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "../TextureLoader.h"
 #include <unordered_map>
 #include <string>
 
@@ -26,26 +27,11 @@ static Texture2D TryLoadTexture(const char* relPath)
         return it->second;
     }
 
-    const char* candidatePaths[] = {
-        relPath,
-        TextFormat("Assets/%s", relPath),
-        TextFormat("Assets/Textures/%s", relPath),
-        TextFormat("Build/Development/Assets/%s", relPath),
-        TextFormat("Build/Development/Assets/Textures/%s", relPath),
-        TextFormat("Game/Assets/Universal Base Characters/Base Characters/Textures/%s", relPath)
-    };
-
-    for (const char* path : candidatePaths)
+    Texture2D tex = TextureLoader::Load(relPath, true, true);
+    if (tex.id > 0)
     {
-        if (FileExists(path))
-        {
-            Texture2D tex = LoadTexture(path);
-            if (tex.id > 0)
-            {
-                s_TextureCache[key] = tex;
-                return tex;
-            }
-        }
+        s_TextureCache[key] = tex;
+        return tex;
     }
     return (Texture2D){ 0 };
 }

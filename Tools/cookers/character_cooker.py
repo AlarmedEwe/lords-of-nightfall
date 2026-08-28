@@ -67,6 +67,26 @@ def cook_3d_models(source_dir, output_dir):
             print(f"[AssetCooker] Modelo 3D up-to-date: {out_model}")
             continue
 
+        # Fallback: se o modelo já existe em outra pasta de build (ex: Development), copia para a pasta atual
+        project_root = os.path.abspath(os.path.join(output_dir, "..", "..", ".."))
+        cached_candidates = [
+            os.path.join(project_root, "Build", "Development", "Assets", "Models", model_name),
+            os.path.join(project_root, "Build", "Debug", "Assets", "Models", model_name),
+            os.path.join(project_root, "Build", "Release", "Assets", "Models", model_name),
+            os.path.join(project_root, "Build", "Debug", "assets", "Models", model_name),
+            os.path.join(source_dir, "Models", model_name)
+        ]
+        copied_from_cache = False
+        for cand in cached_candidates:
+            if os.path.exists(cand) and os.path.abspath(cand) != os.path.abspath(out_model):
+                shutil.copy2(cand, out_model)
+                print(f"[AssetCooker] Modelo 3D copiado do cache ({cand} -> {out_model})")
+                copied_from_cache = True
+                break
+
+        if copied_from_cache:
+            continue
+
         script_path = os.path.join(output_dir, "temp_cook_script.py")
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(f"""import bpy
@@ -256,8 +276,13 @@ with open(out_model, "wb") as f:
 print(f'[AssetCooker] Model file cooked: {{out_model}} ({{os.path.getsize(out_model)}} bytes)')
 """)
 
-        res = subprocess.run([blender_bin, "--background", "--python", script_path], capture_output=True, text=True)
-        if res.returncode == 0 and os.path.exists(out_model):
-            print(f"[AssetCooker] Modelo .lonmodel gerado com sucesso via Blender: {out_model} ({os.path.getsize(out_model)} bytes)")
-        else:
-            print(f"[AssetCooker] Erro no Blender asset cooker: {res.stderr}")
+        try:
+            res = subprocess.run([blender_bin, "--background", "--python", script_path], capture_output=True, text=True)
+            if res.returncode == 0 and os.path.exists(out_model):
+                print(f"[AssetCooker] Modelo .lonmodel gerado com sucesso via Blender: {out_model} ({os.path.getsize(out_model)} bytes)")
+            else:
+                print(f"[AssetCooker] Erro no Blender asset cooker: {res.stderr}")
+        except FileNotFoundError:
+            print(f"[AssetCooker] Blender não encontrado no sistema ('{blender_bin}'). Pulando bake de animação...")
+        except Exception as e:
+            print(f"[AssetCooker] Exceção ao executar Blender: {e}")
